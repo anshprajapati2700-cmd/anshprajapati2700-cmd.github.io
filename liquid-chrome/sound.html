@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Liquid Chrome Sound</title>
+<style>
+  body { margin: 0; padding: 24px; background: #111; color: #ddd; font: 14px/1.5 ui-monospace, Menlo, Consolas, monospace; }
+  button { font: inherit; padding: 8px 14px; margin: 0 8px 8px 0; background: #222; color: #eee; border: 1px solid #555; border-radius: 6px; cursor: pointer; }
+  button:hover { background: #2c2c2c; }
+  pre { white-space: pre-wrap; color: #9a9; }
+</style>
+</head>
+<body>
+<h3>Liquid Chrome: score for the 6 s loop</h3>
+<p>Everything is synthesised in code with the Web Audio API (no samples, no downloads): 48 kHz stereo, 360 frames of 800 samples, every hit lands one frame after its visual event.</p>
+<button id="play">Play loop</button><button id="stop">Stop</button><button id="wav">Download master WAV</button><button id="wavfade">Download article WAV (2 ms edge fades)</button>
+<pre id="log">rendering...</pre>
+<script>
+(() => {
+'use strict';
+const SR = 48000, FR = 800, LOOP = 360 * FR, TAU = Math.PI * 2;
+const land = F => (F + 1) * FR;                       // a hit lands one frame after its visual event
+const dB = x => Math.pow(10, x / 20);
+const TARGET_LUFS = -14, CEILING_DBFS = -1.3;           // sample ceiling; true peak is checked to -1 dBTP
+
+/* ------------------------------------------------------------------ trims (dB). Calibrated by calibrate(); */
+/*TRIM*/ const TRIM = {kick67: -1.493, inhale: 3.857, pinch112: -2.473, pinch113: -2.849, pinch114: -3.417, pinch120: -3.583, pour136: -3.074, pour138: -3.371, pour141: -3.623, pour145: -4.270, pour147: -5.039, pour150: -5.773, pour153: -7.057, ting: -10.301, kick247: -1.732, swell: 7.049, drip0: -4.893, drip1: -4.893, drip2: -4.893, blup319: -4.183, blup321: -4.423, blup322: -4.339, blup325: -4.878, gloop: -3.921, kick337: -3.921, glide: -8.585, shimmer: -6.970, slurp: -3.982};  /*END*/
+const BUS = { bed: 0, hits: -2.5 };                      // hit bus sits under the bed-relative calibration
+const BED = { padDb: 1.5 - 12, subDb: -4 - 9, shakerDb: -26 };
+const KICK_DB = -1.5, KICK_UNDER_GLOOP_DB = -(4 + 2.7);   // kicks 1.5 dB down; the kick under the gloop a further 4 + 2.7 dB down
+const trim = id => (TRIM[id] || 0);
+
+/* ------------------------------------------------------------------ deterministic noise */
+function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+
+/* ------------------------------------------------------------------ tonal hit: a buffer whose attack ends on a cosine crest at index `pre`
+   (every partial in cosine phase at t = 0, no waveshaper, no filters), so the biggest peak sits exactly on sample (F + 1) * 800. */
+function tonal(o) {
+  const pre = Math.round((o.pre ?? 0.004) * SR), post = Math.round(o.post * SR), len = pre + post + 1;
+  const ph = new Float64Array(len);
+  const f = i => o.f((i - pre) / SR);
+  for (let i = pre; i < len - 1; i++) ph[i + 1] = ph[i] + TAU * 0.5 * (f(i) + f(i + 1)) / SR;
+  for (let i = pre; i > 0; i--) ph[i - 1] = ph[i] - TAU * 0.5 * (f(i) + f(i - 1)) / SR;
+  const out = new Float32Array(len);
+  const att = o.att ?? 0.004;
+  for (let i = 0; i < len; i++) {
+    const t = (i - pre) / SR;
+    let pe;
+    if (t < 0) pe = o.preEnv ? o.preEnv(t) : (t <= -att ? 0 : 0.5 * (1 - Math.cos(Math.PI * (t + att) / att)));
+    else pe = 1;
+    if (pe === 0) continue;
+    let s = 0;
+    for (const p of o.partials) s += p.a * (t < 0 ? 1 : Math.exp(-t / p.tau)) * Math.cos(p.m * ph[i]);
+    out[i] = s * pe * (o.mod && t >= 0 ? o.mod(t) : 1);
+  }
+  return { n0i: pre, ch: [out] };
+}
+
+const kick = () => tonal({ pre: 0.004, post: 0.45, f: t => t < 0 ? 166 : 46 + 120 * Math.exp(-t / 0.028),
+  partials: [{ m: 1, a: 1, tau: 0.11 }, { m: 2, a: 0.28, tau: 0.07 }] });
+
+const gloop = () => {                                   // fundamental + 2nd 0.2 + 3rd 0.08 (no 4th), all cosine phase, wobbling at 2.4 Hz
+  const w = 2.4, m = 0.45;
+  return tonal({ pre: 0.006, post: 2.6, f: t => t < 0 ? 118 : 73.4 * (1 + 0.6 * Math.exp(-t / 0.09)) * (1 + 0.035 * Math.exp(-t / 0.9) * (Math.cos(TAU * w * t) - 1)),
+    partials: [{ m: 1, a: 1, tau: 0.75 }, { m: 2, a: 0.2, tau: 0.5 }, { m: 3, a: 0.08, tau: 0.35 }],
+    mod: t => (1 + m * Math.cos(TAU * w * t)) / (1 + m) });
+};
+
+const slurp = () => tonal({ pre: 0.2, post: 0.02, att: 0.2, preEnv: t => { const u = 1 + t / 0.2; return u <= 0 ? 0 : u * u * (3 - 2 * u); },
+  f: t => t < 0 ? 118 * Math.exp(Math.log(1100 / 118) * Math.pow(-t / 0.2, 0.8)) : 118,
+  partials: [{ m: 1, a: 0.9, tau: 0.012 }, { m: 3, a: 0.2, tau: 0.012 }] });
+
+const bloop = (f0, { bend = 0.3, dir = 1, tau = 0.07, h2 = 0.16, post = 0.35, pre = 0.003 } = {}) => tonal({ pre, post,
+  f: t => t < 0 ? f0 : f0 * (dir > 0 ? 1 + bend * (1 - Math.exp(-t / 0.025)) : 1 + bend * Math.exp(-t / 0.03)),
+  partials: [{ m: 1, a: 1, tau }, { m: 2, a: h2, tau: tau * 0.6 }] });
+
+const glide = () => tonal({ pre: 0.003, post: 0.5, f: t => t < 0 ? 220 : 220 * Math.pow(5, Math.min(1, t / 0.4667)),
+  partials: [{ m: 1, a: 1, tau: 1.6 }, { m: 2, a: 0.14, tau: 1.2 }], mod: t => t > 0.4667 ? Math.max(0, 1 - (t - 0.4667) / 0.03) : 1 });
+
+const ting = () => tonal({ pre: 0.0006, post: 1.6, att: 0.0006, f: () => 880,           // inharmonic bar partials, all under 8 kHz
+  partials: [{ m: 1, a: 1, tau: 0.9 }, { m: 2.756, a: 0.55, tau: 0.5 }, { m: 5.404, a: 0.3, tau: 0.28 }, { m: 8.933, a: 0.15, tau: 0.15 }] });
+
+const drip = (f0, f1) => tonal({ pre: 0.002, post: 0.2, f: t => t < 0 ? f0 : f0 + (f1 - f0) * (1 - Math.exp(-t / 0.012)),
+  partials: [{ m: 1, a: 1, tau: 0.045 }, { m: 2, a: 0.1, tau: 0.03 }] });
+
+/* ------------------------------------------------------------------ noise swells (peak exactly on the landing sample) */
+function noiseSwell({ startF, peakF, rel, seed, tail = 0 }) {
+  const n0 = land(peakF), s0 = startF == null ? n0 : (startF) * FR, pre = n0 - s0, post = Math.round(rel * SR * 4);
+  const r = rng(seed), L = new Float32Array(pre + post + 1), R = new Float32Array(pre + post + 1);
+  for (let i = 0; i < L.length; i++) {
+    const k = i - pre;
+    const e = k <= 0 ? Math.pow(Math.sin(0.5 * Math.PI * (i / pre)), 2) : Math.exp(-k / (rel * SR));
+    L[i] = (r() * 2 - 1) * e; R[i] = (r() * 2 - 1) * e;
+  }
+  return { n0i: pre, ch: [L, R] };
+}
+
+function shimmer() {                                    // glint-synced sparkle, panned left to right over frames 198..245
+  const s0 = land(198), s1 = land(245), len = s1 - s0 + 2400, r = rng(777);
+  const notes = [1174.7, 1318.5, 1480, 1760, 1975.5, 2349.3, 2637, 2960, 3520, 3951, 4698.6, 5274, 5920, 7040];
+  const L = new Float32Array(len), R = new Float32Array(len);
+  const parts = notes.map(f => ({ f: f * (1 + (r() - 0.5) * 0.004), tr: 3 + r() * 8, tp: r() * TAU, p: r() * TAU }));
+  for (let i = 0; i < len; i++) {
+    const u = Math.min(1, i / (s1 - s0)), t = i / SR;
+    const env = Math.pow(Math.sin(Math.PI * Math.pow(u, 0.75)), 2) * (i > s1 - s0 ? Math.max(0, 1 - (i - (s1 - s0)) / 2400) : 1);
+    const pan = u * 2 - 1, gl = Math.cos((pan + 1) * Math.PI / 4), gr = Math.sin((pan + 1) * Math.PI / 4);
+    let s = 0;
+    for (const p of parts) s += Math.sin(TAU * p.f * t + p.p) * (0.5 + 0.5 * Math.sin(TAU * p.tr * t + p.tp)) ** 2;
+    s *= env / Math.sqrt(parts.length) * 1.4;
+    L[i] = s * gl; R[i] = s * gr;
+  }
+  return { n0i: 0, ch: [L, R], start: s0 };
+}
+
+/* ------------------------------------------------------------------ bed */
+const BARS = [{ F: 67, name: 'Bm', root: 61.74, notes: [185.0, 246.94, 293.66] }, { F: 157, name: 'G', root: 49.0, notes: [196.0, 246.94, 293.66] },
+  { F: 247, name: 'A', root: 55.0, notes: [220.0, 277.18, 329.63] }, { F: 337, name: 'D', root: 73.42, notes: [220.0, 293.66, 369.99] }];
+const BAR = 90 * FR;
+
+function padBar(bar, idx) {                               // detuned additive pad, slow swell in, long overlap out
+  const pre = Math.round(0.02 * SR), len = pre + BAR + Math.round(0.6 * SR), r = rng(100 + idx);
+  const L = new Float32Array(len), R = new Float32Array(len);
+  const voices = [];
+  for (const f of bar.notes) for (const d of [-0.004, 0, 0.004]) voices.push({ f: f * (1 + d), ph: r() * TAU, side: d < 0 ? 0 : d > 0 ? 1 : 0.5 });
+  const att = 0.22 * SR, rel = 0.45 * SR;
+  for (let i = 0; i < len; i++) {
+    const k = i - pre;
+    let e = k < 0 ? 0 : k < att ? Math.pow(Math.sin(0.5 * Math.PI * k / att), 2) : 1;
+    if (k > BAR) e *= Math.max(0, 1 - (k - BAR) / rel);
+    if (e === 0) continue;
+    let sl = 0, sr = 0;
+    for (const v of voices) {
+      const a = TAU * v.f * i / SR + v.ph;
+      const s = Math.sin(a) + 0.32 * Math.sin(2 * a + 0.7) + 0.1 * Math.sin(3 * a + 1.3);
+      sl += s * (1 - v.side * 0.7); sr += s * (0.3 + v.side * 0.7);
+    }
+    L[i] = sl * e / voices.length; R[i] = sr * e / voices.length;
+  }
+  return { n0i: pre, ch: [L, R] };
+}
+
+function subBar(bar) {
+  const pre = Math.round(0.03 * SR), len = pre + BAR + Math.round(0.1 * SR), out = new Float32Array(len);
+  for (let i = 0; i < len; i++) {
+    const k = i - pre, t = k / SR;
+    let e = k < 0 ? 0.5 * (1 - Math.cos(Math.PI * (k + pre) / pre)) : 1;
+    if (k > BAR - 0.05 * SR) e *= Math.max(0, 1 - (k - (BAR - 0.05 * SR)) / (0.15 * SR));
+    const a = TAU * bar.root * t;
+    out[i] = e * (Math.cos(a) + 0.45 * Math.cos(2 * a));
+  }
+  return { n0i: pre, ch: [out] };
+}
+
+function shakerHit(seed) {
+  const r = rng(seed), len = Math.round(0.11 * SR), L = new Float32Array(len), R = new Float32Array(len);
+  for (let i = 0; i < len; i++) { const t = i / SR, e = Math.min(1, t / 0.003) * Math.exp(-t / 0.028); L[i] = (r() * 2 - 1) * e; R[i] = (r() * 2 - 1) * e; }
+  return { n0i: 0, ch: [L, R] };
+}
+
+/* ------------------------------------------------------------------ the score */
+const POUR_F = [587.33, 659.26, 739.99, 880, 987.77, 1174.66, 1318.51];        // D major pentatonic, rising
+const SHAKER_F = [172, 232, 262, 352, 22, 52];                                  // offbeats where no hit plays
+const events = [];
+function ev(id, group, bus, voice, o = {}) {
+  const n0 = o.n0 ?? land(o.F);
+  events.push(Object.assign({ id, group, bus, n0, start: voice.start ?? (n0 - voice.n0i), ch: voice.ch, n0i: voice.n0i, pan: 0, fx: null, filter: null, extra: 0 }, o));
+}
+function buildScore() {
+  events.length = 0;
+  /* bed */
+  BARS.forEach((b, i) => { ev('pad' + b.name, 'bed', 'bed', padBar(b, i), { F: b.F, extra: BED.padDb }); ev('sub' + b.name, 'bed', 'bed', subBar(b), { F: b.F, extra: BED.subDb }); });
+  SHAKER_F.forEach((F, i) => ev('shaker' + F, 'bed', 'bed', shakerHit(900 + i), { F, pan: i % 2 ? 0.35 : -0.35, extra: BED.shakerDb, filter: { type: 'highpass', f0: 6500, f1: 6500, q: 0.7 } }));
+  /* hits: group = landing frame */
+  const H = (id, F, voice, o = {}) => ev(id, 'g' + F, 'hits', voice, Object.assign({ F }, o));
+  H('kick67', 67, kick(), { extra: KICK_DB });
+  H('inhale', 84, noiseSwell({ startF: 72, peakF: 84, rel: 0.03, seed: 11 }), { filter: { type: 'bandpass', f0: 400, f1: 2600, q: 1.4 } });
+  H('glide', 84, glide(), { pan: 0.0, group: 'gglide' });
+  [[112, 440], [113, 587.33], [114, 739.99], [120, 880]].forEach(([F, f], i) => H('pinch' + F, F, bloop(f, { dir: -1, bend: 0.7, tau: 0.045, post: 0.25 }), { pan: [-0.25, 0.25, -0.1, 0.1][i], fx: -12 }));
+  POUR_F.forEach((f, i) => H('pour' + [136, 138, 141, 145, 147, 150, 153][i], [136, 138, 141, 145, 147, 150, 153][i], bloop(f, { dir: 1, bend: 0.28, tau: 0.08 }), { pan: -0.7 + 1.4 * i / 6, fx: -9 }));
+  H('shimmer', 198, shimmer(), { group: 'gshimmer', n0: land(198) });
+  H('ting', 200, ting(), { pan: 0.18, fx: -14 });
+  H('kick247', 247, kick(), { extra: KICK_DB });
+  H('swell', 303, noiseSwell({ startF: 288, peakF: 303, rel: 0.05, seed: 29 }), { filter: { type: 'bandpass', f0: 280, f1: 1900, q: 3.5 }, fx: -10 });
+  const dr = [[0, 900, 1900, 0, 0], [3, 1100, 2300, -5, 0.3], [7, 760, 1600, -10, -0.3]];
+  dr.forEach(([df, a, b, d, p], i) => ev('drip' + i, 'g309', 'hits', drip(a, b), { n0: land(309) + df * FR, extra: d, pan: p, fx: -11 }));
+  [[319, 440], [321, 370], [322, 293.66], [325, 220]].forEach(([F, f], i) => H('blup' + F, F, bloop(f, { dir: -1, bend: 0.35, tau: 0.09, h2: 0.22, post: 0.4 }), { pan: [0.2, -0.2, 0.15, -0.15][i], fx: -10 }));
+  H('slurp', 337, slurp(), { group: 'gslurp' });
+  H('gloop', 337, gloop());
+  H('kick337', 337, kick(), { extra: KICK_DB + KICK_UNDER_GLOOP_DB });
+  return events;
+}
+
+/* hit groups that the 3-to-6 dB-over-the-bed rule applies to (K-weighted, first 60 ms from the landing sample) */
+const MEASURED = [['g67'], ['g84'], ['g112'], ['g113'], ['g114'], ['g120'], ['g136'], ['g138'], ['g141'], ['g145'], ['g147'], ['g150'], ['g153'], ['g200'], ['g247'], ['g303'], ['g309'], ['g319'], ['g321'], ['g322'], ['g325'], ['g337']];
+const TEXTURES = { gglide: { from: 0, len: 22400, over: 1.5 }, gshimmer: { from: 0, len: 37600, over: 1.5 }, gslurp: { from: -9600, len: 9600, over: 2.5 } };   // continuous textures: mean K-weighted level over their span
+const TARGET_OVER = { g67: 4.8, g84: 4.0, g247: 4.8, g337: 5.0, g200: 4.5, g303: 4.0, g309: 4.0 };
+
+/* ------------------------------------------------------------------ Web Audio rendering */
+const bufCache = new Map();
+function audioBuffer(ctx, e) {
+  const key = e.id;
+  if (!bufCache.has(key)) {
+    const b = ctx.createBuffer(e.ch.length, e.ch[0].length, SR);
+    e.ch.forEach((c, i) => b.copyToChannel(c, i));
+    bufCache.set(key, b);
+  }
+  return bufCache.get(key);
+}
+
+async function renderMix({ include = null, loops = [0, 1, 2], skipBed = false } = {}) {
+  const N = 3 * LOOP, ctx = new OfflineAudioContext(2, N, SR);
+  const master = ctx.createGain(); master.connect(ctx.destination);
+  const bedBus = ctx.createGain(); bedBus.gain.value = dB(BUS.bed); bedBus.connect(master);
+  const hitBus = ctx.createGain(); hitBus.gain.value = dB(BUS.hits); hitBus.connect(master);
+  /* light ping-pong delay for the liquid bloops */
+  const dA = ctx.createDelay(1), dB_ = ctx.createDelay(1), fb1 = ctx.createGain(), fb2 = ctx.createGain(), lp = ctx.createBiquadFilter(), wet = ctx.createGain();
+  dA.delayTime.value = 0.375; dB_.delayTime.value = 0.375; fb1.gain.value = 0.38; fb2.gain.value = 0.38; lp.type = 'lowpass'; lp.frequency.value = 5200; wet.gain.value = 1;
+  const pL = ctx.createStereoPanner(), pR = ctx.createStereoPanner(); pL.pan.value = -0.7; pR.pan.value = 0.7;
+  const fxIn = ctx.createGain(); fxIn.connect(lp); lp.connect(dA); dA.connect(pL); dA.connect(fb1); fb1.connect(dB_); dB_.connect(pR); dB_.connect(fb2); fb2.connect(dA); pL.connect(wet); pR.connect(wet); wet.connect(master);
+  for (const e of events) {
+    if (include && !include.has(e.id)) continue;
+    if (skipBed && e.bus === 'bed') continue;
+    const buf = audioBuffer(ctx, e);
+    for (const k of loops) {
+      const src = ctx.createBufferSource(); src.buffer = buf;
+      let node = src;
+      if (e.filter) {
+        const f = ctx.createBiquadFilter(); f.type = e.filter.type; f.Q.value = e.filter.q;
+        const t0 = (e.start + k * LOOP) / SR, t1 = (e.n0 + k * LOOP) / SR;
+        f.frequency.setValueAtTime(e.filter.f0, t0);
+        if (e.filter.f1 !== e.filter.f0) f.frequency.exponentialRampToValueAtTime(e.filter.f1, t1);
+        node.connect(f); node = f;
+      }
+      const g = ctx.createGain();
+      g.gain.value = dB((e.bus === 'hits' ? trim(e.id) : 0) + (e.extra || 0));
+      node.connect(g); node = g;
+      if (e.ch.length === 1 || e.pan) { const p = ctx.createStereoPanner(); p.pan.value = e.pan || 0; node.connect(p); node = p; }
+      node.connect(e.bus === 'bed' ? bedBus : hitBus);
+      if (e.fx != null) { const s = ctx.createGain(); s.gain.value = dB(e.fx); node.connect(s); s.connect(fxIn); }
+      src.start((e.start + k * LOOP) / SR);
+    }
+  }
+  const out = await ctx.startRendering();
+  return [out.getChannelData(0).slice(), out.getChannelData(1).slice()];
+}
+
+/* ------------------------------------------------------------------ measurement: BS.1770 K-weighting, LUFS, true peak, limiter */
+function biquad(x, b, a) { const y = new Float64Array(x.length); let x1 = 0, x2 = 0, y1 = 0, y2 = 0; for (let i = 0; i < x.length; i++) { const v = x[i], o = b[0] * v + b[1] * x1 + b[2] * x2 - a[1] * y1 - a[2] * y2; x2 = x1; x1 = v; y2 = y1; y1 = o; y[i] = o; } return y; }
+const kWeight = x => biquad(biquad(x, [1.53512485958697, -2.69169618940638, 1.19839281085285], [1, -1.69065929318241, 0.73248077421585]), [1, -2, 1], [1, -1.99004745483398, 0.99007225036621]);
+function msWindow(kl, kr, s, n) { let a = 0; for (let i = s; i < s + n; i++) a += kl[i] * kl[i] + kr[i] * kr[i]; return a / n; }
+const toDb = ms => 10 * Math.log10(ms + 1e-20) - 0.691;
+function integrated(kl, kr, from = 0, to = kl.length) {   // 400 ms blocks, 100 ms hop, -70 LUFS absolute gate, -10 LU relative gate
+  const blk = 19200, hop = 4800, z = [];
+  for (let s = from; s + blk <= to; s += hop) z.push(msWindow(kl, kr, s, blk));
+  const g1 = z.filter(v => toDb(v) > -70), m1 = g1.reduce((a, b) => a + b, 0) / g1.length;
+  const g2 = g1.filter(v => toDb(v) > toDb(m1) - 10);
+  return toDb(g2.reduce((a, b) => a + b, 0) / g2.length);
+}
+function truePeak(L, R) {                                  // 4x oversampled (windowed sinc, circular), in dBTP
+  const taps = 16, up = 4, h = [];
+  for (let p = 0; p < up; p++) {
+    const row = new Float64Array(2 * taps);
+    for (let k = -taps + 1; k <= taps; k++) { const t = p / up - k, sinc = t === 0 ? 1 : Math.sin(Math.PI * t) / (Math.PI * t); row[k + taps - 1] = sinc * 0.5 * (1 + Math.cos(Math.PI * t / taps)); }
+    h.push(row);
+  }
+  let pk = 0;
+  for (const c of [L, R]) {
+    const n = c.length;
+    for (let i = 0; i < n; i++) for (let p = 0; p < up; p++) {
+      let s = 0; const row = h[p];
+      for (let k = -taps + 1; k <= taps; k++) s += c[((i + k) % n + n) % n] * row[k + taps - 1];
+      pk = Math.max(pk, Math.abs(s));
+    }
+  }
+  return 20 * Math.log10(pk);
+}
+function limiter(L, R, ceil, look = 72) {                  // lookahead brickwall: smoothed running minimum of the needed gain, no latency
+  const n = L.length, need = new Float32Array(n), g = new Float32Array(n);
+  for (let i = 0; i < n; i++) { const m = Math.max(Math.abs(L[i]), Math.abs(R[i])); need[i] = m > ceil ? ceil / m : 1; }
+  const mn = new Float32Array(n);
+  const q = new Int32Array(n); let qh = 0, qt = 0;
+  for (let i = 0; i < n + look; i++) {
+    if (i < n) { while (qt > qh && need[q[qt - 1]] >= need[i]) qt--; q[qt++] = i; }
+    const c = i - look; if (c < 0) continue;
+    while (q[qh] < c - look) qh++;
+    mn[c] = need[q[qh]];
+  }
+  const w = new Float32Array(2 * look + 1); let ws = 0;
+  for (let k = -look; k <= look; k++) { const v = 0.5 * (1 + Math.cos(Math.PI * k / (look + 1))); w[k + look] = v; ws += v; }
+  for (let i = 0; i < n; i++) { let s = 0; for (let k = -look; k <= look; k++) { const j = i + k; s += w[k + look] * mn[j < 0 ? 0 : j >= n ? n - 1 : j]; } g[i] = s / ws; }
+  const oL = new Float32Array(n), oR = new Float32Array(n);
+  for (let i = 0; i < n; i++) { oL[i] = L[i] * g[i]; oR[i] = R[i] * g[i]; }
+  return { L: oL, R: oR, g };
+}
+function hp150(x) { const w0 = TAU * 150 / SR, c = Math.cos(w0), a = Math.sin(w0) / (2 * Math.SQRT1_2), a0 = 1 + a; return biquad(x, [(1 + c) / 2 / a0, -(1 + c) / a0, (1 + c) / 2 / a0], [1, -2 * c / a0, (1 - a) / a0]); }
+const mid = x => x.slice(LOOP, 2 * LOOP);
+const gainArr = (x, g) => { const y = new Float32Array(x.length); for (let i = 0; i < x.length; i++) y[i] = x[i] * g; return y; };
+
+/* ------------------------------------------------------------------ calibrate: put every hit group TARGET dB over the bed (K-weighted, first 60 ms) */
+async function levels() {
+  const bed = await renderMix({ include: new Set(events.filter(e => e.bus === 'bed').map(e => e.id)), loops: [0, 1, 2] });
+  const kb = [kWeight(bed[0]), kWeight(bed[1])];
+  const res = [];
+  for (const [g] of MEASURED) {
+    const members = events.filter(e => e.group === g);
+    const mix = await renderMix({ include: new Set(members.map(e => e.id)), loops: [1] });
+    const k = [kWeight(mix[0]), kWeight(mix[1])];
+    const n0 = Math.min(...members.map(e => e.n0)) + LOOP;
+    const hit = toDb(msWindow(k[0], k[1], n0, 2880)), bedL = toDb(msWindow(kb[0], kb[1], n0, 2880));
+    // crest position: biggest peak of the isolated hit
+    let pk = 0, pi = 0; for (let i = 0; i < mix[0].length; i++) { const v = Math.max(Math.abs(mix[0][i]), Math.abs(mix[1][i])); if (v > pk) { pk = v; pi = i; } }
+    res.push({ group: g, over: hit - bedL, hitDb: hit, bedDb: bedL, n0: n0 - LOOP, peakAt: pi - LOOP, members: members.map(e => e.id) });
+  }
+  return res;
+}
+async function textureLevels() {
+  const bed = await renderMix({ include: new Set(events.filter(e => e.bus === 'bed').map(e => e.id)), loops: [0, 1, 2] });
+  const kb = [kWeight(bed[0]), kWeight(bed[1])], res = [];
+  for (const [g, t] of Object.entries(TEXTURES)) {
+    const members = events.filter(e => e.group === g);
+    const mix = await renderMix({ include: new Set(members.map(e => e.id)), loops: [1] });
+    const k = [kWeight(mix[0]), kWeight(mix[1])];
+    const s = Math.min(...members.map(e => e.n0)) + LOOP + t.from;
+    res.push({ group: g, over: toDb(msWindow(k[0], k[1], s, t.len)) - toDb(msWindow(kb[0], kb[1], s, t.len)), want: t.over, members: members.map(e => e.id) });
+  }
+  return res;
+}
+async function calibrate(rounds = 2) {
+  for (let r = 0; r < rounds; r++) {
+    const res = await levels();
+    for (const x of res) {
+      const want = TARGET_OVER[x.group] ?? 4.5, d = want - x.over;
+      for (const id of x.members) TRIM[id] = (TRIM[id] || 0) + d;
+    }
+    for (const x of await textureLevels()) for (const id of x.members) TRIM[id] = (TRIM[id] || 0) + (x.want - x.over);
+  }
+  master = null;
+  return levels();
+}
+
+/* ------------------------------------------------------------------ master: loudness to -14 LUFS, -1 dBTP, seamless loop */
+async function renderMaster() {
+  buildScore();
+  const mix = await renderMix();
+  let gain = 1, out, info = {};
+  let ceil = dB(CEILING_DBFS);
+  for (let it = 0; it < 6; it++) {
+    const pre = [gainArr(mix[0], gain), gainArr(mix[1], gain)];
+    const lim = limiter(pre[0], pre[1], ceil);
+    const L = mid(lim.L), R = mid(lim.R);
+    const k = [kWeight(lim.L), kWeight(lim.R)];
+    const lufs = integrated(mid(k[0]), mid(k[1]));
+    const tp = truePeak(L, R);
+    out = { L, R, g: mid(lim.g) };
+    info = { lufs, tp, gain };
+    if (Math.abs(lufs - TARGET_LUFS) < 0.05 && tp <= -1.0) break;
+    gain *= dB(TARGET_LUFS - lufs);
+    if (tp > -1.0) ceil *= dB(-(tp + 1.0) - 0.02);
+  }
+  return Object.assign(info, { ceilDb: 20 * Math.log10(ceil), L: out.L, R: out.R, g: out.g });
+}
+
+const fade = (x, n = 96) => { const y = x.slice(); for (let i = 0; i < n; i++) { const w = 0.5 * (1 - Math.cos(Math.PI * i / n)); y[i] *= w; y[y.length - 1 - i] *= w; } return y; };
+function wav24(L, R) {
+  const n = L.length, buf = new ArrayBuffer(44 + n * 6), v = new DataView(buf);
+  const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, 'RIFF'); v.setUint32(4, 36 + n * 6, true); w(8, 'WAVEfmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 2, true);
+  v.setUint32(24, SR, true); v.setUint32(28, SR * 6, true); v.setUint16(32, 6, true); v.setUint16(34, 24, true); w(36, 'data'); v.setUint32(40, n * 6, true);
+  let o = 44;
+  for (let i = 0; i < n; i++) for (const c of [L, R]) { let s = Math.round(Math.max(-1, Math.min(1, c[i])) * 8388607); if (s < 0) s += 16777216; v.setUint8(o++, s & 255); v.setUint8(o++, (s >> 8) & 255); v.setUint8(o++, (s >> 16) & 255); }
+  return new Uint8Array(buf);
+}
+
+/* ------------------------------------------------------------------ report */
+async function report() {
+  const M = await renderMaster();
+  const gl = events.find(e => e.id === 'gloop');
+  const win = M.g.slice(gl.n0 - 960, gl.n0 + 2880);
+  const grDb = -20 * Math.log10(Math.min(...win));
+  const kL = kWeight(M.L), kR = kWeight(M.R), hl = kWeight(hp150(M.L)), hr = kWeight(hp150(M.R));
+  const lufsHp = integrated(hl.slice(0), hr.slice(0));
+  const d1 = (x, i) => Math.abs(x[(i + 1) % LOOP] - x[i]);
+  let local = 0; for (let k = -200; k < 200; k++) local = Math.max(local, d1(M.L, (LOOP + k) % LOOP), d1(M.R, (LOOP + k) % LOOP));
+  const seam = { stepAtSeam: Math.max(d1(M.L, LOOP - 1), d1(M.R, LOOP - 1)), maxStepWithin200Samples: local };
+  const levs = await levels();
+  let maxGr = 0, at = 0; for (let i = 0; i < M.g.length; i++) { const d = -20 * Math.log10(M.g[i]); if (d > maxGr) { maxGr = d; at = i; } }
+  const tex = await textureLevels();
+  const cost = n0 => { let a = 0; for (let i = n0; i < n0 + 2880; i++) a += M.g[i % LOOP] ** 2; return -10 * Math.log10(a / 2880); };
+  for (const h of levs) { h.limiterCostDb = cost(h.n0); h.overAfterLimiter = h.over - h.limiterCostDb; }
+  return { maxLimiterGrDb: maxGr, maxLimiterGrAt: at, textures: tex.map(t => ({ group: t.group, over: +t.over.toFixed(2) })), lufs: M.lufs, truePeakDb: M.tp, ceilDb: M.ceilDb, gloopLimiterGrDb: grDb, lufsAfter150HzHighpass: lufsHp, hp150LossDb: M.lufs - lufsHp, seam, hits: levs };
+}
+
+/* ------------------------------------------------------------------ page + API */
+let master = null, audioCtx = null, node = null;
+async function ensureMaster() { if (!master) master = await renderMaster(); return master; }
+window.soundApi = {
+  buildScore, events: () => events, renderMix, levels, calibrate, report, renderMaster,
+  trims: () => JSON.parse(JSON.stringify(TRIM)),
+  setTrims: t => { for (const k in TRIM) delete TRIM[k]; Object.assign(TRIM, t); master = null; },
+  masterWav: async () => Array.from(wav24((await ensureMaster()).L, (await ensureMaster()).R)),
+  articleWav: async () => { const m = await ensureMaster(); return Array.from(wav24(fade(m.L), fade(m.R))); },
+  masterInfo: async () => { const m = await ensureMaster(); return { lufs: m.lufs, tp: m.tp, ceilDb: m.ceilDb, samples: m.L.length }; },
+};
+const log = document.getElementById('log');
+const download = (bytes, name) => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([bytes], { type: 'audio/wav' })); a.download = name; a.click(); };
+document.getElementById('play').onclick = async () => {
+  const m = await ensureMaster(); audioCtx = audioCtx || new AudioContext({ sampleRate: SR }); if (node) node.stop();
+  const b = audioCtx.createBuffer(2, LOOP, SR); b.copyToChannel(m.L, 0); b.copyToChannel(m.R, 1);
+  node = audioCtx.createBufferSource(); node.buffer = b; node.loop = true; node.connect(audioCtx.destination); node.start();
+};
+document.getElementById('stop').onclick = () => { if (node) node.stop(); node = null; };
+document.getElementById('wav').onclick = async () => { const m = await ensureMaster(); download(wav24(m.L, m.R), 'liquid-chrome-loop.wav'); };
+document.getElementById('wavfade').onclick = async () => { const m = await ensureMaster(); download(wav24(fade(m.L), fade(m.R)), 'liquid-chrome-article.wav'); };
+buildScore();
+window.soundReady = (async () => { const m = await ensureMaster(); log.textContent = `loop ready: ${m.lufs.toFixed(2)} LUFS, true peak ${m.tp.toFixed(2)} dBTP`; return true; })().catch(e => { log.textContent = String(e && e.stack || e); throw e; });
+})();
+</script>
+</body>
+</html>
