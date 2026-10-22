@@ -1,0 +1,13 @@
+import { openPage } from './lib.mjs';
+import fs from 'fs';
+import { createRequire } from 'module';
+const [res = '540'] = process.argv.slice(2);
+const { browser, page } = await openPage({ query: `?res=${res}&t=0`, size: +res });
+await page.waitForFunction(() => window.__ready || window.__error, null, { timeout: 600000 });
+const grab = async f => { await page.evaluate(t => window.renderAt(t), f / 60); return Buffer.from((await page.evaluate(() => document.querySelector('canvas').toDataURL('image/png'))).split(',')[1], 'base64'); };
+const frames = {};
+for (const f of [0, 1, 2, 357, 358, 359, 360, 361]) frames[f] = await grab(f);
+fs.mkdirSync('/tmp/seam', { recursive: true });
+for (const f in frames) fs.writeFileSync(`/tmp/seam/f${f}.png`, frames[f]);
+console.log('frame 360 identical to 0:', Buffer.compare(frames[360], frames[0]) === 0, ' 361 identical to 1:', Buffer.compare(frames[361], frames[1]) === 0);
+await browser.close();

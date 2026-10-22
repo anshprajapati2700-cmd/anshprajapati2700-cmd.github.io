@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Siya, motion designer</title>
+<style>
+/* Black, white and one accent. Every pixel is a function of t: no CSS transitions, no timers, no will-change on scaled layers. */
+:root { --ink: #0b0b0b; --bg: #ffffff; --accent: #D97757; --f: "Inter Display", "Inter", system-ui, sans-serif; --m: "DejaVu Sans Mono", "Liberation Mono", monospace; }
+html, body { margin: 0; background: var(--bg); }
+#stage { position: relative; width: 1440px; height: 1440px; overflow: hidden; background: var(--bg); color: var(--ink); font-family: var(--f); }
+#cam { position: absolute; left: 0; top: 0; width: 1440px; height: 1440px; transform-origin: 0 0; }
+.tag { position: absolute; left: 0; top: 90px; width: 1440px; text-align: center; font: 600 54px/70px var(--f); letter-spacing: -0.025em; }
+.tag .dim { color: rgba(11, 11, 11, .42); }
+.win { position: absolute; left: 120px; top: 250px; width: 1200px; height: 940px; box-sizing: border-box; border: 3px solid var(--ink); border-radius: 36px; background: var(--bg); overflow: hidden; }
+.logo { position: absolute; left: 40px; top: 52px; width: 40px; height: 40px; border-radius: 10px; background: var(--accent); }
+.word { position: absolute; left: 100px; top: 38px; font: 600 52px/68px var(--f); letter-spacing: -0.02em; }
+.stp { position: absolute; left: 674px; top: 52px; width: 480px; height: 60px; }
+.stp .lb { position: absolute; top: 0; width: 120px; text-align: center; font: 500 18px/36px var(--m); letter-spacing: 0.12em; text-transform: uppercase; white-space: nowrap; }
+.stp .ul { position: absolute; top: 40px; width: 76px; height: 6px; border-radius: 3px; background: var(--ink); }
+#panels { position: absolute; left: 0; top: 150px; width: 1194px; height: 784px; overflow: hidden; }
+#strip { position: absolute; left: 0; top: 0; width: 1194px; height: 784px; }
+.pn { position: absolute; top: 0; width: 1194px; height: 784px; }
+.cap { position: absolute; font: 500 18px/1 var(--m); letter-spacing: 0.14em; text-transform: uppercase; opacity: .5; white-space: nowrap; }
+.mk { position: absolute; overflow: hidden; }
+.btn { position: absolute; height: 64px; border-radius: 32px; box-sizing: border-box; border: 3px solid var(--ink); background: var(--ink); color: #fff; font: 500 26px/58px var(--f); text-align: center; white-space: nowrap; overflow: hidden; }
+.btn .lbl { position: absolute; inset: 0; }
+.btn svg { position: absolute; left: 50%; top: 50%; width: 40px; height: 40px; margin: -20px 0 0 -20px; overflow: visible; }
+/* 01 send */
+.zone { position: absolute; left: 40px; top: 56px; width: 740px; height: 300px; box-sizing: border-box; border: 3px dashed var(--ink); border-radius: 24px; }
+.zone .cap { left: 26px; top: 24px; }
+.cnt { position: absolute; right: 26px; top: 14px; width: 200px; height: 40px; overflow: hidden; text-align: right; font: 500 24px/40px var(--m); letter-spacing: 0.06em; }
+.cnt div { height: 40px; }
+.slot { position: absolute; width: 334px; height: 92px; box-sizing: border-box; border: 3px dashed rgba(11, 11, 11, .28); border-radius: 18px; }
+.file { position: absolute; box-sizing: border-box; border: 3px solid var(--ink); border-radius: 18px; background: var(--bg); overflow: hidden; }
+.file .fn { position: absolute; left: 22px; top: 12px; font: 600 30px/38px var(--f); letter-spacing: -0.01em; }
+.file .fs { position: absolute; left: 22px; top: 52px; font: 500 15px/20px var(--m); letter-spacing: 0.1em; opacity: .55; text-transform: uppercase; white-space: nowrap; }
+.file .wf { position: absolute; left: 22px; height: 12px; border-radius: 6px; background: rgba(11, 11, 11, .16); }
+.fld { position: absolute; top: 400px; height: 118px; box-sizing: border-box; border: 3px solid var(--ink); border-radius: 20px; overflow: hidden; }
+.fld .cap { left: 24px; top: 20px; }
+.fv { position: absolute; left: 24px; top: 52px; right: 20px; height: 48px; overflow: hidden; }
+.fv .ln { height: 48px; line-height: 48px; font: 600 28px/48px var(--f); letter-spacing: -0.01em; white-space: nowrap; }
+.fv .ph { font-weight: 500; color: rgba(11, 11, 11, .36); }
+.sw { display: inline-block; width: 30px; height: 30px; border-radius: 50%; background: var(--accent); vertical-align: -6px; margin-right: 12px; border: 3px solid var(--ink); box-sizing: border-box; }
+.caret { display: inline-block; width: 3px; height: 30px; background: var(--ink); vertical-align: -5px; margin-left: 2px; }
+/* 02 plan */
+.say { position: absolute; left: 108px; font: 600 36px/46px var(--f); letter-spacing: -0.02em; white-space: nowrap; }
+.mlogo { position: absolute; left: 40px; top: 58px; width: 44px; height: 44px; border-radius: 11px; background: var(--accent); }
+.cell { position: absolute; top: 196px; width: 62px; height: 62px; box-sizing: border-box; border: 3px solid var(--ink); border-radius: 14px; text-align: center; font: 500 16px/56px var(--m); }
+.th { position: absolute; top: 330px; width: 262px; height: 210px; box-sizing: border-box; border: 3px solid var(--ink); border-radius: 20px; overflow: hidden; background: var(--bg); }
+.mw { position: absolute; left: 18px; top: 18px; width: 220px; height: 168px; box-sizing: border-box; border: 3px solid var(--ink); border-radius: 14px; }
+.mw .ml { position: absolute; left: 14px; top: 12px; width: 16px; height: 16px; border-radius: 4px; background: var(--accent); }
+.mw .mbtn { position: absolute; right: 14px; top: 10px; width: 58px; height: 20px; border-radius: 10px; background: var(--ink); }
+.mw .mring { position: absolute; right: 33px; top: 10px; width: 20px; height: 20px; box-sizing: border-box; border-radius: 50%; border: 4px solid var(--ink); border-top-color: transparent; }
+.mw .mr { position: absolute; left: 14px; width: 186px; height: 26px; box-sizing: border-box; border: 3px solid var(--ink); border-radius: 9px; background: var(--bg); }
+.mw .mr.hot { background: var(--accent); }
+.thl { position: absolute; top: 556px; width: 262px; text-align: center; font: 500 17px/24px var(--m); letter-spacing: 0.12em; text-transform: uppercase; opacity: .6; }
+.eq { position: absolute; top: 606px; height: 4px; background: var(--ink); border-radius: 2px; }
+.eqb { position: absolute; top: 590px; width: 48px; height: 36px; border-radius: 18px; background: var(--ink); color: #fff; text-align: center; font: 600 26px/34px var(--f); }
+/* 03 build */
+.big { position: absolute; left: 40px; top: 70px; font: 600 150px/170px var(--m); letter-spacing: -0.04em; white-space: nowrap; }
+.big .dm { color: rgba(11, 11, 11, .26); }
+.track { position: absolute; left: 40px; top: 280px; width: 1114px; height: 22px; border-radius: 11px; background: rgba(11, 11, 11, .12); overflow: hidden; }
+.track i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 11px; background: var(--ink); }
+.fc { position: absolute; width: 38px; height: 38px; border-radius: 9px; background: var(--ink); }
+.done { position: absolute; right: 40px; top: 96px; width: 132px; height: 132px; border-radius: 50%; background: var(--accent); border: 3px solid var(--ink); box-sizing: border-box; }
+.done svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* 04 loop */
+.pv { position: absolute; left: 40px; top: 64px; width: 520px; height: 560px; box-sizing: border-box; border: 3px solid var(--ink); border-radius: 28px; overflow: hidden; }
+.pv .pl { position: absolute; left: 28px; top: 28px; width: 30px; height: 30px; border-radius: 8px; background: var(--accent); }
+.pv .pw { position: absolute; left: 72px; top: 22px; font: 600 34px/42px var(--f); letter-spacing: -0.02em; }
+.mrow { position: absolute; left: 28px; width: 458px; height: 92px; box-sizing: border-box; border: 3px solid var(--ink); border-radius: 20px; background: var(--bg); }
+.mrow .mn { position: absolute; left: 26px; top: 14px; font: 600 30px/36px var(--f); letter-spacing: -0.01em; }
+.mrow .mb { position: absolute; left: 26px; top: 58px; width: 180px; height: 10px; border-radius: 5px; background: rgba(11, 11, 11, .14); overflow: hidden; }
+.mrow .mb i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--ink); border-radius: 5px; }
+.chip { position: absolute; left: 600px; width: 554px; height: 84px; box-sizing: border-box; border: 3px solid var(--ink); border-radius: 20px; background: var(--bg); }
+.chip .cn { position: absolute; left: 26px; top: 8px; font: 600 32px/40px var(--f); letter-spacing: -0.01em; }
+.chip .cs { position: absolute; left: 26px; top: 48px; font: 500 15px/20px var(--m); letter-spacing: 0.1em; opacity: .55; text-transform: uppercase; white-space: nowrap; }
+.ck { position: absolute; left: 600px; width: 554px; height: 48px; overflow: hidden; }
+.ck .in { position: absolute; left: 0; top: 0; width: 554px; height: 48px; }
+.ck svg { position: absolute; left: 0; top: 5px; width: 38px; height: 38px; overflow: visible; }
+.ck span { position: absolute; left: 56px; top: 0; font: 500 28px/48px var(--f); letter-spacing: -0.01em; white-space: nowrap; }
+#cur { position: absolute; left: 0; top: 0; width: 56px; height: 56px; transform-origin: 6px 4px; pointer-events: none; overflow: visible; }
+</style>
+<script src="beats.js"></script>
+</head>
+<body>
+<div id="stage">
+  <div id="cam">
+    <div class="tag">Send Siya your screens. <span class="dim">Get a loop back.</span></div>
+    <div class="win">
+      <div class="logo"></div><div class="word">Siya</div>
+      <div class="stp" id="stp"></div>
+      <div id="panels"><div id="strip"></div></div>
+    </div>
+  </div>
+  <svg id="cur" viewBox="0 0 56 56"><path d="M6 4 L6 40 L15 31 L21 46 L28 43 L22 29 L34 29 Z" fill="#0b0b0b" stroke="#fff" stroke-width="3" stroke-linejoin="round"/></svg>
+</div>
+<script>
+'use strict';
+/* ================= time base: the beat grid measured from track.wav (tools/audio.py) ================= */
+const BEATS = window.BEATS || Array.from({ length: 40 }, (_, i) => i * 0.5);
+const LOOP = window.LOOP || 20;                                 // 120 BPM, 40 beats, 20 s, 1200 frames at 60 fps
+const T = (b, q = 0) => {                                       // beat b (1..40) plus q sixteenth-beats: every action is snapped here
+  const i = b - 1, t0 = BEATS[i], t1 = i < BEATS.length - 1 ? BEATS[i + 1] : LOOP;
+  return t0 + q * (t1 - t0) / 4;
+};
+
+/* ================= closed-form springs, summed when a target changes mid-flight ================= */
+function springStep(zeta, w) {                                  // unit step response of x'' + 2 zeta w x' + w^2 x = w^2 target
+  if (zeta >= 1) return tau => tau <= 0 ? 0 : 1 - Math.exp(-w * tau) * (1 + w * tau);
+  const wd = w * Math.sqrt(1 - zeta * zeta), k = zeta * w / wd;
+  return tau => tau <= 0 ? 0 : 1 - Math.exp(-zeta * w * tau) * (Math.cos(wd * tau) + k * Math.sin(wd * tau));
+}
+const UI = springStep(0.75, 15.5);                              // UI: damping 0.75, 2% settle in about 0.35 s, 2.8% overshoot
+const CURX = springStep(0.8, 17), CURY = springStep(0.8, 15);   // cursor: x and y a touch apart so diagonal moves arc like a hand
+const CAM = springStep(1.0, 12);                                // camera and panel strip: damping 1.0, no overshoot
+/* A spring never quite arrives. Between 0.6 s and 0.85 s after a step the (already tiny) remainder is eased to exactly zero and the
+   channel returns its target bit-for-bit, so the last frame equals the first frame. Nothing steps after T(38, 1) = 18.625 s. */
+const SNAP0 = 0.6, SNAP1 = 0.85;
+const sstep = x => x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x);
+function chan(S, init, steps) {                                 // steps: [[time, target], ...] ascending
+  return t => {
+    let v = init, prev = init;
+    for (const [ts, tg] of steps) {
+      const tau = t - ts;
+      const k = tau <= 0 ? 0 : tau >= SNAP1 ? 1 : 1 - (1 - S(tau)) * (1 - sstep((tau - SNAP0) / (SNAP1 - SNAP0)));
+      v += (tg - prev) * k; prev = tg;
+    }
+    if (steps.length && t - steps[steps.length - 1][0] >= SNAP1) return prev;   // settled: the target, bit-for-bit (no float dust)
+    return v;
+  };
+}
+const pulse = (S, t0, t1) => chan(S, 0, [[t0, 1], [t1, 0]]);
+const lerp = (a, b, t) => a + (b - a) * t;
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const mix = p => `color-mix(in srgb, #D97757 ${Math.round(100 * clamp(p))}%, #ffffff)`;
+const mixInk = p => `color-mix(in srgb, #D97757 ${Math.round(100 * clamp(p))}%, #0b0b0b)`;
+const inkOn = p => `color-mix(in srgb, #0b0b0b ${Math.round(100 * clamp(p))}%, #ffffff)`;
+const whiteOn = p => `color-mix(in srgb, #ffffff ${Math.round(100 * clamp(p))}%, #0b0b0b)`;
+
+/* ================= geometry (world = canvas px at camera scale 1) ================= */
+const PW = 1194, PH = 784;                                      // panel size: the window's inner width, below the header
+const PX = 123, PY = 403;                                       // world position of the panel in view (strip at its stage)
+const L = (lx, ly) => [PX + lx, PY + ly];                        // panel-local point to world, for the stage whose panel is in view
+const TRAY = i => ({ x: 820, y: 56 + 104 * i, w: 334, h: 92 });
+const SLOT = i => ({ x: 70 + 230 * i, y: 110, w: 200, h: 150 });
+const FILES = [['Home', 'Screen 1'], ['Agents', 'Screen 2'], ['Chart', 'Screen 3']];
+const BAR = { x0: 40, pitch: 284 };                             // still thumbnails
+const LAST = 'Your agents. Working, or not.', TYPE_CPS = 40;
+const STEPS = ['01 Send', '02 Plan', '03 Go', '04 Loop'];
+
+/* ================= the beat map: one action per beat =================
+    1-2   hold the hero                                21     click Go
+    3     cursor to the first screen                   22     the strip slides to 03, camera follows
+    4-6   drag three screens into the drop zone        22-27  the build counts up, frames fill one per tick
+    7     click Accent: swatch pops, value rolls in    27     done
+    8     click Fonts                                  28     slide to 04, three files arrive
+    9     click Last line, it types                    29-33  the preview loops, three checks draw in
+    11    click Send: pill to loader                   34     click loop.mp4
+    12    loader to check                              38     everything rewinds into the opening frame
+    13    the strip slides to 02, camera follows       39-40  settle: the last frame is the first frame
+    14-15 sixteen beat cells light up in a cascade
+    16-17 four stills pop in, the seam equals the opening
+    18    "last frame = first frame" */
+const CAMKEYS = [                                               // [time, panel-local x, panel-local y, scale]; each keeps the tagline out of frame
+  [T(3),     597, 345, 1.25],
+  [T(10, 2), 960, 690, 1.7],
+  [T(13),    597, 345, 1.25],
+  [T(16),    597, 365, 1.2],
+  [T(20, 2), 1000, 700, 1.6],
+  [T(22),    597, 345, 1.25],
+  [T(28),    597, 365, 1.2]
+].map(([t, lx, ly, s]) => [t, ...L(lx, ly), s]).concat([[T(38), 720, 720, 1]]);
+const camX = chan(CAM, 720, CAMKEYS.map(k => [k[0], k[1]]));
+const camY = chan(CAM, 720, CAMKEYS.map(k => [k[0], k[2]]));
+const camS = chan(CAM, 1, CAMKEYS.map(k => [k[0], k[3]]));
+const stepPos = chan(CAM, 0, [[T(13), 1], [T(22), 2], [T(28), 3], [T(38), 4]]);   // strip position in panels (4 is the clone of 0)
+
+const REST = [600, 330];
+const CURPATH = [                                               // [time, x, y]: depart a half beat before the beat it has to land on
+  [T(3),     ...L(TRAY(0).x + 167, TRAY(0).y + 46)],
+  [T(4),     ...L(SLOT(0).x + 100, SLOT(0).y + 75)],
+  [T(4, 2),  ...L(TRAY(1).x + 167, TRAY(1).y + 46)],
+  [T(5),     ...L(SLOT(1).x + 100, SLOT(1).y + 75)],
+  [T(5, 2),  ...L(TRAY(2).x + 167, TRAY(2).y + 46)],
+  [T(6),     ...L(SLOT(2).x + 100, SLOT(2).y + 75)],
+  [T(6, 2),  ...L(190, 459)],
+  [T(7, 2),  ...L(510, 459)],
+  [T(8, 2),  ...L(917, 459)],
+  [T(10, 2), ...L(1054, 700)],
+  [T(13, 2), ...L(597, 255)],
+  [T(20, 2), ...L(1074, 722)],
+  [T(22, 2), ...L(1054, 560)],
+  [T(33, 2), ...L(877, 106)],
+  [T(38, 1), REST[0], REST[1]]
+];
+const curX = chan(CURX, REST[0], CURPATH.map(p => [p[0], p[1]]));
+const curY = chan(CURY, REST[1], CURPATH.map(p => [p[0], p[2]]));
+const PRESS = [[T(4), T(4, 2)], [T(5), T(5, 2)], [T(6), T(6, 2)], [T(7), T(7, 1)], [T(8), T(8, 1)], [T(9), T(9, 1)],
+  [T(11), T(11, 1)], [T(21), T(21, 1)], [T(34), T(34, 1)]];       // keep the starts in step with CLICK_BEATS in tools/audio.py
+const press = chan(UI, 0, PRESS.flatMap(([a, b]) => [[a, 1], [b, 0]]));
+
+/* ---- 01 send ---- */
+const drag = [0, 1, 2].map(i => chan(CURX, 0, [[T(4 + i), 1]]));  // same spring as the cursor, so a dragged screen stays under it
+const cnt = chan(UI, 0, [[T(4, 2), 1], [T(5, 2), 2], [T(6, 2), 3]]);
+const accOn = chan(UI, 0, [[T(7), 1]]), fntOn = chan(UI, 0, [[T(8), 1]]), lastOn = chan(UI, 0, [[T(9), 1]]);
+const fldPress = [pulse(UI, T(7), T(7, 1)), pulse(UI, T(8), T(8, 1)), pulse(UI, T(9), T(9, 1))];
+const ready = chan(UI, 0, [[T(10), 1]]);                          // Send turns from outline to solid once everything is in
+const sHover = chan(UI, 0, [[T(10, 3), 1]]);
+const sMorph = chan(UI, 0, [[T(11), 1]]), sCheck = chan(UI, 0, [[T(12), 1]]), sPress = pulse(UI, T(11), T(11, 1));
+/* ---- 02 plan ---- */
+const say = [chan(UI, 0, [[T(13, 2), 1]]), chan(UI, 0, [[T(14), 1]])];
+const cell = Array.from({ length: 16 }, (_, i) => chan(UI, 0, [[T(14, 0.5 * i), 1]]));
+const thPop = [T(16), T(16, 2), T(17), T(17, 2)].map(t => chan(UI, 0, [[t, 1]]));
+const eqLine = chan(UI, 0, [[T(18), 1]]), eqBadge = chan(UI, 0, [[T(18, 2), 1]]), eqCap = chan(UI, 0, [[T(19), 1]]);
+const goHover = chan(UI, 0, [[T(20, 3), 1], [T(22), 0]]), goPress = pulse(UI, T(21), T(21, 1));
+/* ---- 03 build ---- */
+const B0 = T(22, 2), B1 = T(27), NCELL = 72, NFRAME = 480;
+const prog = t => clamp((t - B0) / (B1 - B0));
+const doneOn = chan(UI, 0, [[T(27), 1]]);
+/* ---- 04 loop ---- */
+const chipIn = [T(28, 2), T(29), T(29, 2)].map(t => chan(UI, 0, [[t, 1]]));
+const chkIn = [T(31), T(32), T(33)].map(t => chan(UI, 0, [[t, 1]]));
+const mini = chan(UI, 0, [[T(29), 1], [T(31), 0], [T(33), 1], [T(35), 0], [T(37), 1]]);   // the preview loops: Outreach jumps to the top and back
+const chipHot = pulse(UI, T(34), T(36)), chipPress = pulse(UI, T(34), T(34, 1));
+
+/* ================= DOM ================= */
+const $ = id => document.getElementById(id);
+const rise = (outer, p, h) => { outer.firstElementChild.style.transform = `translateY(${(1 - p) * h}px)`; };
+function mount(k, html) { const d = document.createElement('div'); d.className = 'pn'; d.style.left = (k * PW) + 'px'; d.innerHTML = html; $('strip').appendChild(d); return d; }
+const cap = (x, y, s) => `<div class="cap" style="left:${x}px;top:${y}px">${s}</div>`;
+
+const p1html = () => `
+  ${cap(40, 20, '01 · Send your screens')}
+  <div class="zone"><div class="cap">Screens</div><div class="cnt"><div class="cs">
+    <div>0 screens</div><div>1 screen</div><div>2 screens</div><div>3 screens</div></div></div></div>
+  ${[0, 1, 2].map(i => `<div class="slot" style="left:${TRAY(i).x}px;top:${TRAY(i).y}px"></div>`).join('')}
+  ${FILES.map(f => `<div class="file"><div class="fn">${f[0]}</div><div class="fs">${f[1]}</div>
+    <div class="wf" style="top:96px;width:150px"></div><div class="wf" style="top:118px;width:104px"></div></div>`).join('')}
+  <div class="fld" style="left:40px;width:300px"><div class="cap">Accent</div><div class="fv"><div class="strip">
+    <div class="ln ph">Pick an accent</div><div class="ln"><span class="sw"></span>#D97757</div></div></div></div>
+  <div class="fld" style="left:360px;width:300px"><div class="cap">Fonts</div><div class="fv"><div class="strip">
+    <div class="ln ph">Choose fonts</div><div class="ln">Inter Display</div></div></div></div>
+  <div class="fld" style="left:680px;width:474px"><div class="cap">Last line</div><div class="fv"><div class="strip">
+    <div class="ln ph">Say your last line</div><div class="ln typed"></div></div></div></div>
+  ${cap(40, 698, '8–12 screens · one accent · fonts · last line')}
+  <div class="btn send" style="left:954px;top:668px;width:200px"><div class="lbl">Send to Siya</div>
+    <svg viewBox="0 0 40 40"><circle class="ring" cx="20" cy="20" r="15" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round" stroke-dasharray="70 24.2"/>
+    <path class="chk" d="M11 21l6 6 12-13" fill="none" stroke="#0b0b0b" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="36" stroke-dashoffset="36"/></svg></div>`;
+
+function thumb(j) {                                              // opening, button to loader, list re-order, loop seam (= opening)
+  const v = j === 3 ? 0 : j;
+  return `<div class="th" style="left:${BAR.x0 + BAR.pitch * j}px"><div class="mw"><i class="ml"></i>${v === 1 ? '<u class="mring"></u>' : '<u class="mbtn"></u>'}
+    ${[0, 1, 2].map(i => `<i class="mr${v === 2 && i === 0 ? ' hot' : ''}" style="top:${56 + 36 * i}px"></i>`).join('')}</div></div>`;
+}
+const THL = ['Opening', 'Mid state', 'Mid state', 'Loop seam'];
+const p2html = () => `
+  ${cap(40, 20, '02 · See the plan first')}
+  <div class="mlogo"></div>
+  <div class="mk say1" style="left:108px;top:50px;width:900px;height:50px"><div class="say" style="left:0;top:0">Here is the plan: a beat map and four stills.</div></div>
+  <div class="mk say2" style="left:108px;top:104px;width:900px;height:50px"><div class="say" style="left:0;top:0;opacity:.45">Nothing is built until you say go.</div></div>
+  ${Array.from({ length: 16 }, (_, i) => `<div class="cell" style="left:${40 + 70 * i}px">${String(i + 1).padStart(2, '0')}</div>`).join('')}
+  ${cap(40, 276, '120 BPM · one action per beat')}
+  ${[0, 1, 2, 3].map(thumb).join('')}
+  ${THL.map((s, j) => `<div class="mk thm" style="left:${BAR.x0 + BAR.pitch * j}px;top:556px;width:262px;height:24px"><div class="thl" style="left:0;top:0">${s}</div></div>`).join('')}
+  <div class="eq"></div><div class="eqb">=</div>
+  <div class="mk eqc" style="left:40px;top:640px;width:1114px;height:24px"><div class="cap" style="left:0;top:2px;width:1114px;text-align:center;opacity:.6">Last frame = first frame</div></div>
+  <div class="btn chg" style="left:40px;top:690px;width:300px;background:var(--bg);color:var(--ink)">Change something</div>
+  <div class="btn go" style="left:994px;top:690px;width:160px;background:var(--accent);color:var(--ink)">Go</div>`;
+
+const p3html = () => `
+  ${cap(40, 20, '03 · Siya builds it')}
+  <div class="big"><span class="fr">0000</span><span class="dm"> / 0480</span></div>
+  <div class="done"><svg viewBox="0 0 132 132"><path class="dchk" d="M38 68l20 20 38-42" fill="none" stroke="#0b0b0b" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="120" stroke-dashoffset="120"/></svg></div>
+  <div class="track"><i></i></div>
+  ${Array.from({ length: NCELL }, (_, i) => `<div class="fc" style="left:${40 + 46 * (i % 24)}px;top:${350 + 46 * Math.floor(i / 24)}px"></div>`).join('')}
+  ${cap(40, 520, 'Motion blur · 4 to 16 subframes per frame')}
+  ${cap(40, 556, 'Text checked at 1× after every zoom')}`;
+
+const MINI = [['Research agent', .64], ['WhatsApp bot', .12], ['Outreach agent', .82]];
+const CHIPS = [['loop.mp4', 'Your video · 60 fps'], ['scene.html', 'Live page · scrub any frame'], ['click-track.wav', '120 BPM click track']];
+const CHECKS = ['Last frame = first frame', 'Text sharp at 1× after every zoom', 'Same pixels every time you seek'];
+const p4html = () => `
+  ${cap(40, 20, '04 · Your loop')}
+  <div class="pv"><div class="pl"></div><div class="pw">Your product</div>
+    ${MINI.map(m => `<div class="mrow"><div class="mn">${m[0]}</div><div class="mb"><i style="width:${m[1] * 100}%"></i></div></div>`).join('')}</div>
+  ${cap(40, 646, 'Loops forever')}
+  ${CHIPS.map((c, i) => `<div class="chip" style="top:${64 + 100 * i}px"><div class="cn">${c[0]}</div><div class="cs">${c[1]}</div></div>`).join('')}
+  ${CHECKS.map((c, i) => `<div class="ck" style="top:${400 + 66 * i}px"><div class="in"><svg viewBox="0 0 38 38"><circle cx="19" cy="19" r="16" fill="none" stroke="#0b0b0b" stroke-width="3"/>
+    <path d="M10 20l6 6 12-13" fill="none" stroke="#D97757" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="34" stroke-dashoffset="34"/></svg><span>${c}</span></div></div>`).join('')}`;
+
+const stp = $('stp');
+const stpLb = STEPS.map((s, i) => { const d = document.createElement('div'); d.className = 'lb'; d.style.left = (120 * i) + 'px'; d.textContent = s; stp.appendChild(d); return d; });
+const stpUl = document.createElement('div'); stpUl.className = 'ul'; stp.appendChild(stpUl);
+
+const P = [mount(0, p1html()), mount(1, p2html()), mount(2, p3html()), mount(3, p4html()), mount(4, p1html())];
+const q = (root, sel) => root.querySelector(sel), qa = (root, sel) => [...root.querySelectorAll(sel)];
+function refs1(root) {
+  const f = qa(root, '.fld');
+  return { files: qa(root, '.file'), cnt: q(root, '.cnt .cs'), flds: f, strips: f.map(x => q(x, '.strip')), sw: q(f[0], '.sw'), typed: q(f[2], '.typed'),
+    send: q(root, '.send'), lbl: q(root, '.send .lbl'), ldr: q(root, '.send svg'), ring: q(root, '.send .ring'), chk: q(root, '.send .chk') };
+}
+const R1 = refs1(P[0]), R5 = refs1(P[4]);
+const R2 = { say1: q(P[1], '.say1'), say2: q(P[1], '.say2'), cells: qa(P[1], '.cell'), ths: qa(P[1], '.th'), thl: qa(P[1], '.thm'),
+  eq: q(P[1], '.eq'), eqb: q(P[1], '.eqb'), eqc: q(P[1], '.eqc'), go: q(P[1], '.go') };
+const R3 = { fr: q(P[2], '.fr'), fill: q(P[2], '.track i'), cells: qa(P[2], '.fc'), done: q(P[2], '.done'), dchk: q(P[2], '.dchk') };
+const R4 = { rows: qa(P[3], '.mrow'), chips: qa(P[3], '.chip'), cks: qa(P[3], '.ck'), };
+
+function updP1(r, t) {
+  FILES.forEach((_, i) => {
+    const d = drag[i](t), a = TRAY(i), b = SLOT(i), el = r.files[i];
+    el.style.left = lerp(a.x, b.x, d) + 'px'; el.style.top = lerp(a.y, b.y, d) + 'px';
+    el.style.width = lerp(a.w, b.w, d) + 'px'; el.style.height = lerp(a.h, b.h, d) + 'px';
+    el.style.zIndex = d > 0.001 && d < 0.999 ? 5 : 1;
+  });
+  r.cnt.style.transform = `translateY(${-40 * cnt(t)}px)`;
+  const on = [accOn(t), fntOn(t), lastOn(t)];
+  r.strips.forEach((s, i) => { s.style.transform = `translateY(${-48 * on[i]}px)`; r.flds[i].style.transform = `scale(${1 - 0.03 * fldPress[i](t)})`; });
+  r.sw.style.transform = `scale(${clamp(on[0], 0, 1.3)})`;
+  const typed = Math.floor(clamp((t - T(9, 1)) * TYPE_CPS, 0, LAST.length));
+  const typing = typed > 0 && typed < LAST.length, blink = Math.floor(Math.max(0, t - T(9)) / 0.25) % 2 === 0;
+  r.typed.innerHTML = LAST.slice(0, typed) + (t >= T(9) && t < T(12) && (typing || blink) ? '<span class="caret"></span>' : '');
+  /* Send: outline until ready, then solid; click: label slides out as the loader slides in, ring closes, check draws */
+  const rd = ready(t), h = sHover(t), m = sMorph(t), ck = clamp(sCheck(t)), mc = clamp(m, 0, 1.1), w = lerp(200, 64, clamp(m));
+  r.send.style.left = (954 + (200 - w) / 2) + 'px'; r.send.style.width = w + 'px';
+  r.send.style.transform = `translateY(${-5 * h * (1 - clamp(m))}px) scale(${1 - 0.06 * sPress(t)})`;
+  r.send.style.background = ck > 0 ? mixInk(ck) : inkOn(rd);
+  r.send.style.color = whiteOn(rd);
+  r.lbl.style.transform = `translateY(${-70 * mc}px)`; r.ldr.style.transform = `translateY(${70 * (1 - mc)}px)`;
+  r.ring.setAttribute('transform', `rotate(${(t - T(11)) * 720} 20 20)`);
+  r.ring.setAttribute('stroke-dasharray', `${70 + 24.2 * ck} ${24.2 * (1 - ck)}`);
+  r.chk.setAttribute('stroke-dashoffset', 36 * (1 - ck));
+}
+updP1(R5, 0);                                                    // the clone of 01 at the end of the strip is the opening state, frozen
+
+function renderAt(t) {
+  t = ((t % LOOP) + LOOP) % LOOP;
+  const s = camS(t), fx = camX(t), fy = camY(t);
+  $('cam').style.transform = `translate(${720 - s * fx}px, ${720 - s * fy}px) scale(${s})`;
+  const sp = stepPos(t);
+  /* each panel is placed on its own (not inside one long translated strip): large absolute offsets nudge antialiasing by a few levels,
+     and the clone of 01 must land at left 0, exactly where the original starts */
+  P.forEach((el, k) => { el.style.left = ((k - sp) * PW) + 'px'; });
+  /* stepper: the underline travels with the strip; labels darken as their panel arrives */
+  const ULX = [0, 1, 2, 3, 0], i0 = clamp(Math.floor(sp), 0, 3), fr = clamp(sp - i0), ux = lerp(ULX[i0], ULX[i0 + 1], fr);
+  stpUl.style.left = (120 * ux + 22) + 'px';
+  stpLb.forEach((el, i) => {
+    const w = clamp(1 - Math.abs(sp - i)) + (i === 0 ? clamp(1 - Math.abs(sp - 4)) : 0);
+    el.style.color = `color-mix(in srgb, #0b0b0b ${Math.round(100 * clamp(w))}%, #8e8e8e)`;
+  });
+
+  updP1(R1, t);
+
+  /* 02 */
+  rise(R2.say1, say[0](t), 56); rise(R2.say2, say[1](t), 56);
+  R2.cells.forEach((el, i) => { const c = cell[i](t); el.style.background = inkOn(c); el.style.color = whiteOn(c); el.style.transform = `scale(${lerp(0.88, 1, clamp(c, 0, 1.2))})`; });
+  R2.ths.forEach((el, j) => { el.style.transform = `scale(${Math.max(0, thPop[j](t))})`; rise(R2.thl[j], clamp(thPop[j](t), 0, 1.1), 30); });
+  const x0 = BAR.x0 + 131, x1 = BAR.x0 + 3 * BAR.pitch + 131, el_ = eqLine(t);
+  R2.eq.style.left = x0 + 'px'; R2.eq.style.width = (x1 - x0) * clamp(el_) + 'px';
+  R2.eqb.style.left = ((x0 + x1) / 2 - 24) + 'px'; R2.eqb.style.transform = `scale(${Math.max(0, eqBadge(t))})`;
+  rise(R2.eqc, clamp(eqCap(t), 0, 1.1), 32);
+  R2.go.style.transform = `translateY(${-5 * goHover(t)}px) scale(${1 - 0.06 * goPress(t)})`;
+
+  /* 03 */
+  const p = prog(t);
+  R3.fr.textContent = String(Math.round(p * NFRAME)).padStart(4, '0');
+  R3.fill.style.width = (p * 100) + '%'; R3.fill.style.background = mixInk(doneOn(t));
+  R3.cells.forEach((el, i) => {
+    const reach = B0 + (i / NCELL) * (B1 - B0), a = t - reach;
+    const sc = a <= 0 ? 0 : lerp(0.5, 1, clamp(UI(a), 0, 1.3));
+    el.style.transform = `scale(${sc})`; el.style.background = mixInk(a > 0 && a < 0.12 ? 1 - a / 0.12 : 0);
+  });
+  R3.done.style.transform = `scale(${Math.max(0, doneOn(t))})`;
+  R3.dchk.setAttribute('stroke-dashoffset', 120 * (1 - clamp(doneOn(t))));
+
+  /* 04 */
+  const m = mini(t);                                              // 0: Research, WhatsApp, Outreach  ->  1: Outreach on top, accent
+  MINI.forEach((_, i) => {
+    const slot = i === 2 ? lerp(2, 0, m) : lerp(i, i + 1, m), el = R4.rows[i];
+    el.style.top = (100 + 112 * slot) + 'px'; el.style.background = i === 2 ? mix(m) : '#fff';
+  });
+  R4.chips.forEach((el, i) => { const a = chipIn[i](t); el.style.transform = `translateX(${(1 - a) * 620}px) scale(${1 - 0.03 * (i === 0 ? chipPress(t) : 0)})`;
+    el.style.background = i === 0 ? mix(chipHot(t)) : '#fff'; });
+  R4.cks.forEach((el, i) => { const a = clamp(chkIn[i](t), 0, 1.1);
+    el.firstElementChild.style.transform = `translateY(${(1 - a) * 56}px)`; el.querySelector('path').setAttribute('stroke-dashoffset', 34 * (1 - clamp(chkIn[i](t)))); });
+
+  /* cursor, drawn in screen space so it keeps its size when the camera zooms */
+  const cx = 720 + s * (curX(t) - fx), cy = 720 + s * (curY(t) - fy);
+  $('cur').style.transform = `translate(${cx - 6}px, ${cy - 4}px) scale(${1 - 0.14 * press(t)})`;
+}
+const seek = renderAt;
+window.renderAt = renderAt; window.seek = seek; window.T = T; window.LOOP = LOOP;
+renderAt(0);
+(document.fonts ? document.fonts.ready : Promise.resolve()).then(() => { renderAt(0); window.__ready = true; });
+/* ?live runs the loop in real time (preview only: the video is made by stepping renderAt, never by this) */
+if (/[?&]live\b/.test(location.search)) { const t0 = performance.now(); (function tick(now) { renderAt(((now - t0) / 1000) % LOOP); requestAnimationFrame(tick); })(t0); }
+</script>
+</body>
+</html>
