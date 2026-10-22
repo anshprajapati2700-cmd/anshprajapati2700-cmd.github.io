@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Siya product walkthrough</title>
+<style>
+/* A product walkthrough built from the product's own screens (assets/, captured by tools/capture.mjs at 3x).
+   Every pixel is a function of t: no CSS transitions, no timers, no will-change. World units are the product's CSS pixels. */
+:root { --ink: #0b0b0b; --accent: #D97757; --f: "Inter Display", "Inter", system-ui, sans-serif; --m: "DejaVu Sans Mono", "Liberation Mono", monospace; }
+html, body { margin: 0; background: #c9e0bd; }
+#stage { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: #c9e0bd; font-family: var(--f); }
+#world { position: absolute; left: 0; top: 0; width: 1280px; height: 1513px; transform-origin: 0 0; }
+#world img, #world .patch { position: absolute; display: block; }
+#veil { position: absolute; left: -2000px; top: -2000px; width: 5280px; height: 5513px; background: rgb(10, 12, 24); }
+.dlg { position: absolute; width: 560px; }
+.dlg img { position: absolute; left: 0; top: 0; width: 560px; height: auto; }
+#ring { position: absolute; border-radius: 8px; box-shadow: 0 0 0 4px #fff, 0 0 0 7px var(--ink); box-sizing: border-box; }
+.patch { background-repeat: no-repeat; background-size: 1280px 1513px; background-image: url(assets/base1.png); }
+.capm { position: absolute; left: 72px; bottom: 72px; height: 96px; overflow: hidden; }
+.cap { display: flex; align-items: center; gap: 22px; height: 88px; margin-top: 4px; padding: 0 40px 0 16px; border-radius: 44px; background: var(--ink); color: #fff; font: 600 40px/1 var(--f); letter-spacing: -0.015em; white-space: nowrap; }
+.cap i { display: block; width: 56px; height: 56px; border-radius: 50%; background: var(--accent); color: var(--ink); font: 700 28px/56px var(--f); font-style: normal; text-align: center; }
+#end { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: var(--ink); color: #fff; }
+#end .logo { position: absolute; left: 140px; top: 120px; width: 56px; height: 56px; border-radius: 14px; background: var(--accent); }
+#end .word { position: absolute; left: 216px; top: 112px; font: 600 64px/72px var(--f); letter-spacing: -0.02em; }
+#end .eb { position: absolute; left: 140px; top: 420px; font: 500 22px/1 var(--m); letter-spacing: 0.16em; text-transform: uppercase; opacity: .55; white-space: nowrap; }
+#end .mk { position: absolute; left: 140px; width: 1700px; overflow: hidden; height: 120px; }
+#end .ln { font: 600 80px/108px var(--f); letter-spacing: -0.03em; white-space: nowrap; }
+#end .ln.dim { color: rgba(255, 255, 255, .5); }
+#bug { position: absolute; right: 56px; bottom: 56px; height: 64px; padding: 0 28px 0 16px; display: flex; align-items: center; gap: 14px; border-radius: 32px; background: var(--ink); color: #fff; font: 600 30px/1 var(--f); letter-spacing: -0.01em; }
+#bug i { display: block; width: 32px; height: 32px; border-radius: 8px; background: var(--accent); }
+#cur { position: absolute; left: 0; top: 0; width: 64px; height: 64px; transform-origin: 7px 5px; pointer-events: none; overflow: visible; }
+</style>
+<script src="beats.js"></script>
+</head>
+<body>
+<div id="stage">
+  <div id="world">
+    <img id="b0" src="assets/base0.png" style="left:0;top:0;width:1280px;height:1513px">
+    <div class="patch" id="pHead" style="left:96px;top:14px;width:1100px;height:150px;background-position:-96px -14px"></div>
+    <div class="patch" id="pCard" style="left:390px;top:905px;width:236px;height:330px;background-position:-390px -905px"></div>
+    <div id="veil"></div>
+    <div class="dlg" id="dlg1" style="left:360px;top:539px"><img src="assets/sheet_clipper.png"></div>
+    <div class="dlg" id="dlg2" style="left:360px;top:729px"><img id="d2a" src="assets/sheet_outreach.png"><img id="d2b" src="assets/sheet_outreach_hover.png"><img id="d2c" src="assets/sheet_outreach_after.png"></div>
+    <div id="ring"></div>
+  </div>
+  <div class="capm" id="c1"><div class="cap"><i>1</i>Every agent, at a glance</div></div>
+  <div class="capm" id="c2"><div class="cap"><i>2</i>One tap shows what it needs</div></div>
+  <div class="capm" id="c3"><div class="cap"><i>3</i>Exactly what it is waiting for</div></div>
+  <div class="capm" id="c4"><div class="cap"><i>4</i>Agents on other servers report in here</div></div>
+  <div class="capm" id="c5"><div class="cap"><i>5</i>Set its status in one click</div></div>
+  <div class="capm" id="c6"><div class="cap"><i>6</i>The overview updates as it changes</div></div>
+  <div id="bug"><i></i>Siya</div>
+  <svg id="cur" viewBox="0 0 56 56"><path d="M6 4 L6 40 L15 31 L21 46 L28 43 L22 29 L34 29 Z" fill="#0b0b0b" stroke="#fff" stroke-width="3" stroke-linejoin="round"/></svg>
+  <div id="end"><div class="logo"></div><div class="word">Siya</div><div class="eb">Motion designer</div>
+    <div class="mk" id="e1" style="top:470px"><div class="ln">Made by Siya from the product's own screens.</div></div>
+    <div class="mk" id="e2" style="top:590px"><div class="ln dim">Send Siya your screens. Get a loop back.</div></div></div>
+</div>
+<script>
+'use strict';
+/* ================= time base: the beat grid measured from track.wav (tools/audio.py) ================= */
+const BEATS = window.BEATS || Array.from({ length: 32 }, (_, i) => i * 0.5);
+const LOOP = window.LOOP || 16;                                 // 120 BPM, 32 beats, 16 s, 960 frames at 60 fps
+const T = (b, q = 0) => {                                       // beat b (1..32) plus q sixteenth-beats: every action is snapped here
+  const i = b - 1, t0 = BEATS[i], t1 = i < BEATS.length - 1 ? BEATS[i + 1] : LOOP;
+  return t0 + q * (t1 - t0) / 4;
+};
+
+/* ================= closed-form springs, summed when a target changes mid-flight ================= */
+function springStep(zeta, w) {
+  if (zeta >= 1) return tau => tau <= 0 ? 0 : 1 - Math.exp(-w * tau) * (1 + w * tau);
+  const wd = w * Math.sqrt(1 - zeta * zeta), k = zeta * w / wd;
+  return tau => tau <= 0 ? 0 : 1 - Math.exp(-zeta * w * tau) * (Math.cos(wd * tau) + k * Math.sin(wd * tau));
+}
+const UI = springStep(0.75, 15.5);                              // UI: damping 0.75, settles in about 0.35 s, 2.8% overshoot
+const CURX = springStep(0.8, 17), CURY = springStep(0.8, 15);   // cursor: x and y a touch apart so diagonal moves arc like a hand
+const CAM = springStep(1.0, 12);                                // camera: damping 1.0, no overshoot
+/* Between 0.6 s and 0.85 s after a step the remainder of a spring is eased to zero and the channel returns its target bit-for-bit,
+   so a settled channel is exactly its target and the last frame equals the first. Nothing steps after T(31, 1). */
+const SNAP0 = 0.6, SNAP1 = 0.85;
+const sstep = x => x <= 0 ? 0 : x >= 1 ? 1 : x * x * (3 - 2 * x);
+function chan(S, init, steps) {
+  return t => {
+    let v = init, prev = init;
+    for (const [ts, tg] of steps) {
+      const tau = t - ts;
+      const k = tau <= 0 ? 0 : tau >= SNAP1 ? 1 : 1 - (1 - S(tau)) * (1 - sstep((tau - SNAP0) / (SNAP1 - SNAP0)));
+      v += (tg - prev) * k; prev = tg;
+    }
+    if (steps.length && t - steps[steps.length - 1][0] >= SNAP1) return prev;
+    return v;
+  };
+}
+const pulse = (S, t0, t1) => chan(S, 0, [[t0, 1], [t1, 0]]);
+const lerp = (a, b, t) => a + (b - a) * t;
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+
+/* ================= geometry: world = the product's CSS pixels (page 1280 x 1513) ================= */
+const DLG1 = { x: 360, y: 539 }, DLG2 = { x: 360, y: 729 }, DLG2_AFTER_Y = 718;   // sheets are centred where the camera looks, as in the product
+const rel = (d, r, pad = 0) => [d.x + r[0] - pad, d.y + r[1] - pad, r[2] + 2 * pad, r[3] + 2 * pad];
+const CHIP0 = [642, 24, 116, 34], CHIP1 = [750, 24, 116, 34];                    // "Needs you" in the overview before and after
+const PLATE_CLIP = [132, 703, 224, 124], PLATE_OUT = [396, 1105, 224, 124];
+const MSG1 = [20, 176, 520, 80], BACK = [488.4, 73.5, 51.6, 33], NEEDS = [31, 445.2, 498, 27];
+const ctr = r => [r[0] + r[2] / 2, r[1] + r[3] / 2];
+
+/* ================= the beat map =================
+    1-2   hold the overview                         16     click Outreach: its sheet slides up
+    3     camera to the status chips, cursor on     17-18  cursor to "Needs me", highlighted
+          "Needs you"                               19     click: sheet and overview update
+    4     highlight lands, caption 1                21-22  Back, the sheet slides away
+    6     camera to the agents, cursor on the       22     camera back to the chips: now 2 need you
+          one that needs you                        25     pull back to the whole page
+    8     click: its sheet slides up                27     end card rises, everything resets behind it
+    10    highlight on what it is waiting for       28-30  end card text rolls in
+    12-13 Back, the sheet slides away               31     end card exits upward onto the opening frame
+    13-14 camera to the field agents                32     settle: the last frame is the first frame */
+const CAMKEYS = [                                               // [time, world x, world y, zoom]
+  [T(3),     850, 175, 2.6],
+  [T(6),     480, 690, 2.0],
+  [T(8),     640, 760, 1.7],
+  [T(13, 2), 480, 1060, 2.0],
+  [T(16),    640, 1090, 1.3],
+  [T(22, 2), 850, 175, 2.6],
+  [T(25),    640, 756.5, 0.7],
+  [T(28),    640, 360, 1.5]                                      // hidden behind the end card
+];
+const camX = chan(CAM, 640, CAMKEYS.map(k => [k[0], k[1]]));
+const camY = chan(CAM, 360, CAMKEYS.map(k => [k[0], k[2]]));
+const camZ = chan(CAM, 1.5, CAMKEYS.map(k => [k[0], k[3]]));
+
+const REST = [980, 250];
+const CURPATH = [                                               // [time, world x, world y]; the cursor leads, the camera follows
+  [T(3),     ...ctr(CHIP0)],
+  [T(6),     ...ctr(PLATE_CLIP)],
+  [T(9),     ...ctr(rel(DLG1, MSG1))],
+  [T(12),    ...ctr(rel(DLG1, BACK))],
+  [T(13, 3), ...ctr(PLATE_OUT)],
+  [T(17),    ...ctr(rel(DLG2, NEEDS))],
+  [T(21),    ...ctr([DLG2.x + BACK[0], DLG2_AFTER_Y + BACK[1], BACK[2], BACK[3]])],
+  [T(22, 3), ...ctr(CHIP1)],
+  [T(25),    900, 700],                                          // off the chips while the camera pulls back to the whole page
+  [T(28),    REST[0], REST[1]]
+];
+const curX = chan(CURX, REST[0], CURPATH.map(p => [p[0], p[1]]));
+const curY = chan(CURY, REST[1], CURPATH.map(p => [p[0], p[2]]));
+const PRESS = [[T(8), T(8, 1)], [T(13), T(13, 1)], [T(16), T(16, 1)], [T(19), T(19, 1)], [T(22), T(22, 1)]];   // keep in step with CLICK_BEATS in tools/audio.py
+const press = chan(UI, 0, PRESS.flatMap(([a, b]) => [[a, 1], [b, 0]]));
+
+/* highlight ring: one rectangle that travels between the things being pointed at, and collapses onto the cursor between them */
+const pad = (r, p) => [r[0] - p, r[1] - p, r[2] + 2 * p, r[3] + 2 * p];
+const RING = [
+  [T(4),     pad(CHIP0, 8)],
+  [T(6, 2),  pad(PLATE_CLIP, 8)],
+  [T(8, 2),  null],
+  [T(10),    pad(rel(DLG1, MSG1), 8)],
+  [T(12),    null],
+  [T(14),    pad(PLATE_OUT, 8)],
+  [T(16, 2), null],
+  [T(18),    pad(rel(DLG2, NEEDS), 6)],
+  [T(19, 3), null],
+  [T(23),    pad(CHIP1, 8)],
+  [T(25),    null]
+];
+const ringSteps = [[], [], [], []];
+RING.forEach(([t, r]) => {
+  const target = r || [curX(t), curY(t), 0, 0];                   // collapse onto the cursor
+  for (let k = 0; k < 4; k++) ringSteps[k].push([t, target[k]]);
+});
+const ringX = chan(UI, ringSteps[0][0][1], ringSteps[0]), ringY = chan(UI, ringSteps[1][0][1], ringSteps[1]);   // starts as a point on the first target
+const ringW = chan(UI, 0, ringSteps[2]), ringH = chan(UI, 0, ringSteps[3]);
+const ringPress = chan(UI, 0, PRESS.flatMap(([a, b]) => [[a, 1], [b, 0]]));
+
+/* sheets, veil, product updates */
+const veil = chan(UI, 0, [[T(8), 1], [T(13), 0], [T(16), 1], [T(22), 0]]);
+const dlg1 = chan(UI, 0, [[T(8), 1], [T(13), 0]]);
+const dlg2 = chan(UI, 0, [[T(16), 1], [T(22), 0]]);
+const hoverNeeds = chan(UI, 0, [[T(18), 1], [T(19), 0]]);
+/* The product's state change is an instant swap. It lands half a frame after the click so no frame averages the old state with the new:
+   a frame's shutter is +-1/240 s around frame time, and T(19) falls exactly on a frame, which showed a one-frame double exposure. */
+const SWAP = T(19) + 1 / 120;
+const updated = chan(UI, 0, [[SWAP, 1], [T(28), 0]]);           // undone behind the end card
+const cardPop = chan(UI, 0, [[SWAP, 1], [T(28), 0]]);
+const CAPS = [[T(4), T(6)], [T(7), T(10)], [T(10, 2), T(13)], [T(14), T(16)], [T(17, 2), T(21)], [T(23), T(26)]].map(([a, b]) => pulse(UI, a, b));
+const endY = chan(CAM, 1080, [[T(27), 0], [T(31), -1080]]);
+const endL1 = chan(UI, 0, [[T(27, 2), 1]]), endL2 = chan(UI, 0, [[T(28, 2), 1]]);
+
+/* ================= DOM ================= */
+const $ = id => document.getElementById(id);
+const world = $('world'), ring = $('ring'), cur = $('cur');
+function renderAt(t) {
+  t = ((t % LOOP) + LOOP) % LOOP;
+  const z = camZ(t), fx = camX(t), fy = camY(t);
+  world.style.transform = `translate(${960 - z * fx}px, ${540 - z * fy}px) scale(${z})`;
+
+  /* the product: overview, then its own update patched in over the regions that change */
+  const u = updated(t);
+  $('pHead').style.visibility = u > 0 ? 'visible' : 'hidden';
+  const cp = Math.max(0, cardPop(t));
+  $('pCard').style.visibility = u > 0 ? 'visible' : 'hidden';
+  $('pCard').style.transform = `translate(0px, 0px) scale(${lerp(0.94, 1, clamp(cp, 0, 1.2))})`;
+  $('pCard').style.transformOrigin = '50% 50%';
+
+  /* veil and sheets slide up from below the view, as a sheet does */
+  const v = veil(t);
+  $('veil').style.opacity = 0.62 * clamp(v, 0, 1);
+  $('veil').style.visibility = v > 0 ? 'visible' : 'hidden';
+  const d1 = dlg1(t), d2 = dlg2(t);
+  $('dlg1').style.visibility = d1 > 0 ? 'visible' : 'hidden';
+  $('dlg1').style.transform = `translateY(${(1 - d1) * 900}px)`;
+  $('dlg2').style.visibility = d2 > 0 ? 'visible' : 'hidden';
+  $('dlg2').style.transform = `translateY(${(1 - d2) * 1100}px)`;
+  const after = t >= SWAP, hv = hoverNeeds(t) > 0.5 && !after;
+  $('d2a').style.visibility = !after && !hv ? 'visible' : 'hidden';
+  $('d2b').style.visibility = hv ? 'visible' : 'hidden';
+  $('d2c').style.visibility = after ? 'visible' : 'hidden';
+  $('dlg2').style.top = (after ? DLG2_AFTER_Y : DLG2.y) + 'px';
+
+  /* highlight ring */
+  const rw = ringW(t), rh = ringH(t), rp = ringPress(t);
+  ring.style.visibility = rw + rh > 6 ? 'visible' : 'hidden';
+  ring.style.left = ringX(t) + 'px'; ring.style.top = ringY(t) + 'px';
+  ring.style.width = Math.max(0, rw) + 'px'; ring.style.height = Math.max(0, rh) + 'px';
+  ring.style.transform = `scale(${1 - 0.03 * rp})`;
+
+  /* captions roll up through a mask */
+  CAPS.forEach((c, i) => { const a = clamp(c(t), 0, 1.1); $('c' + (i + 1)).firstElementChild.style.transform = `translateY(${(1 - a) * 120}px)`; });
+
+  /* end card: rises over everything, rolls its lines in, leaves through the top onto the opening frame */
+  $('end').style.transform = `translateY(${endY(t)}px)`;
+  $('e1').firstElementChild.style.transform = `translateY(${(1 - clamp(endL1(t), 0, 1.1)) * 130}px)`;
+  $('e2').firstElementChild.style.transform = `translateY(${(1 - clamp(endL2(t), 0, 1.1)) * 130}px)`;
+
+  /* cursor in screen space, so it keeps its size when the camera zooms; the end card covers it */
+  const cx = 960 + z * (curX(t) - fx), cy = 540 + z * (curY(t) - fy);
+  cur.style.transform = `translate(${cx - 7}px, ${cy - 5}px) scale(${1 - 0.14 * press(t)})`;
+}
+const seek = renderAt;
+window.renderAt = renderAt; window.seek = seek; window.T = T; window.LOOP = LOOP;
+window.cursorScreen = t => { const z = camZ(t), fx = camX(t), fy = camY(t); return [960 + z * (curX(t) - fx), 540 + z * (curY(t) - fy)]; };
+renderAt(0);
+const imgs = [...document.images];
+Promise.all([document.fonts ? document.fonts.ready : null, ...imgs.map(i => i.decode ? i.decode().catch(() => {}) : null)]).then(() => { renderAt(0); window.__ready = true; });
+if (/[?&]live\b/.test(location.search)) { const t0 = performance.now(); (function tick(now) { renderAt(((now - t0) / 1000) % LOOP); requestAnimationFrame(tick); })(t0); }
+</script>
+</body>
+</html>

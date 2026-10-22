@@ -1,0 +1,713 @@
+<title>Agent Workshop</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=Press+Start+2P&display=swap">
+<style>
+/* Layout concept: a handheld-game screen. Title bar, a typed dialog box that narrates the room, then the room itself:
+   a tiled floor with one pixel-art bay per agent, a separate corner for agents that run on their own servers,
+   and a storage box for finished sessions. Sprites are drawn on small canvases and scaled by whole numbers. */
+:root {
+  --ink: #1c1c28;
+  --text: #202030;
+  --text-2: #565870;
+  --screen: #c9e0bd;
+  --panel: #f8f8f0;
+  --panel-2: #e6e2d0;
+  --edge: #383848;
+  --shadow: #9c9888;
+  --wall: #eadcb8;
+  --wall-2: #dccda4;
+  --trim: #c25a42;
+  --trim-2: #8e3c2c;
+  --floor-a: #dccaa0;
+  --floor-b: #d2bf92;
+  --hp-g: #3cbc4c;
+  --hp-y: #f0c020;
+  --hp-r: #e04030;
+  --hp-bg: #3c3c48;
+  --c-working: #f0a818;
+  --c-needs: #e04830;
+  --c-review: #38a860;
+  --c-failed: #a83858;
+  --c-rest: #8890a8;
+  --c-silent: #9a9aa8;
+  --btn: #f0d848;
+  --btn-text: #202030;
+  --f-px: "Press Start 2P", "Courier New", monospace;
+  --f-body: "Pixelify Sans", "Trebuchet MS", system-ui, sans-serif;
+  --s: 4;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --text: #eef0ff; --text-2: #a8b0d8; --screen: #121630; --panel: #1f2440; --panel-2: #2a3052; --edge: #dfe4ff; --shadow: #070914;
+    --wall: #2c3358; --wall-2: #242a4a; --trim: #8a3a60; --trim-2: #5e2640; --floor-a: #383e68; --floor-b: #323760; --hp-bg: #0e1020;
+    --c-rest: #9aa2c8; --c-silent: #8a90b0;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --text: #eef0ff; --text-2: #a8b0d8; --screen: #121630; --panel: #1f2440; --panel-2: #2a3052; --edge: #dfe4ff; --shadow: #070914;
+  --wall: #2c3358; --wall-2: #242a4a; --trim: #8a3a60; --trim-2: #5e2640; --floor-a: #383e68; --floor-b: #323760; --hp-bg: #0e1020;
+  --c-rest: #9aa2c8; --c-silent: #8a90b0;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { min-height: 100%; }
+body {
+  margin: 0; background: var(--screen); color: var(--text); font: 500 17px/1.35 var(--f-body);
+  background-image: radial-gradient(var(--panel-2) 1px, transparent 1.5px); background-size: 16px 16px;
+}
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 3px dashed var(--c-working); outline-offset: 2px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.game { max-width: 1120px; margin: 0 auto; padding: 20px 16px 48px; display: grid; gap: 16px; }
+.pbox { background: var(--panel); border: 4px solid var(--edge); box-shadow: inset 0 0 0 3px var(--panel-2), 4px 4px 0 0 var(--shadow); border-radius: 0; }
+
+/* ---------- title ---------- */
+.titlebar { display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: center; justify-content: space-between; }
+h1 { margin: 0; font: 400 clamp(18px, 4.6vw, 32px)/1.3 var(--f-px); text-transform: uppercase; color: var(--text); text-shadow: 3px 3px 0 var(--c-working); }
+.party { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.party li { display: flex; align-items: center; gap: 8px; padding: 6px 8px; font: 400 9px/1 var(--f-px); text-transform: uppercase; }
+.party li b { font-weight: 400; font-size: 14px; min-width: 1.1em; text-align: right; }
+.party li[data-zero="1"] { opacity: .45; }
+.gem { width: 12px; height: 12px; background: var(--c-rest); border: 2px solid var(--ink); flex: none; display: inline-block; }
+.gem.working { background: var(--c-working); } .gem.needs { background: var(--c-needs); } .gem.review { background: var(--c-review); }
+.gem.failed { background: var(--c-failed); } .gem.rest { background: var(--c-rest); } .gem.silent, .gem.archived { background: var(--c-silent); }
+
+/* ---------- dialog ---------- */
+.dialog { padding: 16px 40px 16px 18px; min-height: 84px; position: relative; display: flex; align-items: center; }
+.dialog p { margin: 0; font: 500 clamp(17px, 2.6vw, 21px)/1.4 var(--f-body); max-width: 70ch; min-height: 2.8em; }
+.arrow { position: absolute; right: 16px; bottom: 10px; font: 400 12px var(--f-px); animation: blink 1s steps(2) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; font: 400 9px/1.4 var(--f-px); text-transform: uppercase; color: var(--text-2); }
+.btn {
+  appearance: none; cursor: pointer; padding: 9px 12px; background: var(--btn); color: var(--btn-text); border: 3px solid var(--ink);
+  box-shadow: 3px 3px 0 var(--ink); font: 400 9px/1 var(--f-px); text-transform: uppercase; text-decoration: none; display: inline-block;
+}
+.btn:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink); }
+.btn:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
+.btn.ghost { background: var(--panel); color: var(--text); }
+
+/* ---------- room ---------- */
+.room { overflow: hidden; padding: 0; }
+.walltop {
+  background:
+    linear-gradient(var(--trim) 0 8px, var(--trim-2) 8px 12px, transparent 12px) 0 100% / 100% 12px no-repeat,
+    repeating-linear-gradient(90deg, transparent 0 30px, color-mix(in srgb, var(--wall-2) 80%, transparent) 30px 32px),
+    var(--wall);
+  padding: 22px 20px 30px; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 20px; align-items: start;
+}
+.clock { width: 104px; height: 104px; flex: none; shape-rendering: crispEdges; }
+.clock .rim { fill: var(--panel); stroke: var(--ink); stroke-width: 6; }
+.clock .tk { stroke: var(--ink); stroke-width: 3; }
+.clock .hd { stroke: var(--ink); stroke-linecap: square; transform-origin: 50px 50px; }
+.clock .sec { stroke: var(--c-needs); }
+.board { background: var(--panel); border: 4px solid var(--edge); padding: 10px 12px 12px; box-shadow: 4px 4px 0 var(--shadow); min-width: 0; }
+.board h2 { margin: 0 0 8px; font: 400 10px/1.4 var(--f-px); text-transform: uppercase; }
+.board p { margin: 0; color: var(--text-2); max-width: 46ch; }
+.notes { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.note { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 2px 8px; align-items: center; padding: 6px 8px; background: var(--panel-2); border: 2px solid var(--edge); }
+.note .rn { overflow-wrap: anywhere; font-weight: 600; }
+.note .sub { grid-column: 2 / -1; font-size: 14px; color: var(--text-2); overflow-wrap: anywhere; }
+.note .nx { font: 400 8px/1.2 var(--f-px); text-transform: uppercase; color: var(--text-2); }
+.floor {
+  background: conic-gradient(var(--floor-a) 25%, var(--floor-b) 0 50%, var(--floor-a) 0 75%, var(--floor-b) 0) 0 0 / 64px 64px;
+  padding: 24px 20px 28px; display: grid; gap: 26px;
+}
+.area { margin: 0 0 14px; font: 400 11px/1.4 var(--f-px); text-transform: uppercase; display: inline-block; padding: 8px 10px; }
+.area small { font: 500 14px var(--f-body); text-transform: none; color: var(--text-2); margin-left: 8px; }
+.bays { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, calc(var(--s) * 56px + 8px)), 1fr)); gap: 24px 16px; justify-items: center; }
+.bays > li { width: calc(var(--s) * 56px); max-width: 100%; }
+.bay { appearance: none; background: none; border: 0; padding: 0; width: 100%; cursor: pointer; text-align: left; display: block; color: inherit; }
+.cv { display: block; width: calc(var(--s) * 56px); height: calc(var(--s) * 48px); image-rendering: pixelated; max-width: 100%; }
+.plate { display: grid; gap: 6px; padding: 8px 9px 9px; margin-top: 2px; }
+.bay:hover .plate, .bay:focus-visible .plate { border-color: var(--c-working); }
+.nm { font: 400 10px/1.5 var(--f-px); text-transform: uppercase; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.tag { display: inline-block; padding: 3px 5px 2px; font: 400 8px/1.2 var(--f-px); text-transform: uppercase; color: #fff; background: var(--c-rest); border: 2px solid var(--ink); }
+.tag.working { background: var(--c-working); color: var(--ink); } .tag.needs { background: var(--c-needs); } .tag.review { background: var(--c-review); }
+.tag.failed { background: var(--c-failed); } .tag.rest { background: var(--c-rest); } .tag.silent { background: var(--c-silent); color: var(--ink); } .tag.ex { background: var(--panel); color: var(--text); }
+.ago { margin-left: auto; font-size: 14px; color: var(--text-2); }
+.msg { font-size: 15px; line-height: 1.25; color: var(--text-2); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.msg.hot { color: var(--c-needs); font-weight: 700; }
+.hp { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: center; }
+.hp b { font: 400 8px/1 var(--f-px); }
+.hp i { display: block; height: 10px; background: var(--hp-bg); border: 2px solid var(--ink); position: relative; }
+.hp i::after { content: ""; position: absolute; inset: 0 auto 0 0; width: var(--w, 0%); background: var(--hp-g); }
+.hp i.y::after { background: var(--hp-y); } .hp i.r::after { background: var(--hp-r); }
+.empty .plate { opacity: .75; }
+.banner { padding: 12px 14px; display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; border-left-width: 12px; border-left-color: var(--c-needs); }
+.banner p { margin: 0; flex: 1 1 260px; min-width: 0; }
+.field-empty { padding: 12px 14px; display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; margin-top: 12px; }
+.field-empty p { margin: 0; flex: 1 1 260px; }
+.add { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 16px; }
+.add input, .add select, .sheet input, .sheet select { background: var(--panel); border: 3px solid var(--ink); padding: 7px 9px; min-width: 0; }
+
+/* ---------- storage box ---------- */
+.pc { padding: 14px 16px 18px; }
+.pc h2 { margin: 0 0 12px; font: 400 11px/1.4 var(--f-px); text-transform: uppercase; }
+.pc h2 small { font: 500 14px var(--f-body); text-transform: none; color: var(--text-2); margin-left: 8px; }
+.slots { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 190px), 1fr)); gap: 10px; }
+.slot { appearance: none; width: 100%; cursor: pointer; text-align: left; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 10px; align-items: center; padding: 8px; background: var(--panel-2); border: 3px solid var(--edge); color: inherit; }
+.slot:hover { border-color: var(--c-working); }
+.slot canvas { width: 40px; height: 36px; image-rendering: pixelated; grid-row: 1 / 3; }
+.slot b { font: 400 8px/1.5 var(--f-px); text-transform: uppercase; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.slot span { font-size: 13px; color: var(--text-2); }
+.more { margin-top: 12px; }
+
+/* ---------- summary screen ---------- */
+.veil { position: fixed; inset: 0; z-index: 30; background: rgba(10, 12, 24, .62); display: flex; align-items: center; justify-content: center; padding: 16px; overflow: auto; }
+.sheet { width: min(100%, 560px); max-height: 100%; overflow: auto; padding: 14px 16px 18px; background: var(--panel); }
+.sheet-top { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; }
+.sheet-top canvas { width: calc(3 * 56px); height: calc(3 * 48px); image-rendering: pixelated; max-width: 100%; background: conic-gradient(var(--floor-a) 25%, var(--floor-b) 0 50%, var(--floor-a) 0 75%, var(--floor-b) 0) 0 0 / 32px 32px; border: 4px solid var(--edge); }
+.sheet h3 { margin: 6px 0 0; font: 400 13px/1.6 var(--f-px); text-transform: uppercase; overflow-wrap: anywhere; }
+.sheet-msg { margin: 14px 0 0; padding: 12px 14px; min-height: 4.2em; background: var(--panel-2); border: 3px solid var(--edge); font-size: 18px; line-height: 1.4; }
+.sheet-msg.hot { border-color: var(--c-needs); }
+.stats { margin: 14px 0 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 14px; }
+.stats dt { font: 400 8px/1.9 var(--f-px); text-transform: uppercase; color: var(--text-2); }
+.stats dd { margin: 0; overflow-wrap: anywhere; font-size: 16px; }
+.menu { margin: 14px 0 0; display: grid; gap: 4px; padding: 8px; background: var(--panel-2); border: 3px solid var(--edge); }
+.menu h4 { margin: 0 0 4px; font: 400 8px/1.5 var(--f-px); text-transform: uppercase; color: var(--text-2); }
+.opt { appearance: none; background: none; border: 0; text-align: left; cursor: pointer; padding: 7px 8px 7px 24px; font: 400 10px/1.3 var(--f-px); text-transform: uppercase; position: relative; }
+.opt::before { content: "\25B6"; position: absolute; left: 6px; top: 8px; font-size: 9px; opacity: 0; }
+.opt:hover::before, .opt:focus-visible::before { opacity: 1; }
+.opt[aria-pressed="true"] { background: var(--panel); }
+.opt[aria-pressed="true"]::before { opacity: 1; }
+.fields { display: grid; gap: 8px; margin: 12px 0 0; }
+.fields label { display: grid; gap: 4px; font: 400 8px/1.5 var(--f-px); text-transform: uppercase; color: var(--text-2); }
+.fields .line { display: flex; gap: 8px; }
+.fields input { flex: 1; font: 500 16px var(--f-body); }
+.sheet .acts { margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap; }
+
+@media (max-width: 560px) {
+  :root { --s: 3; }
+  .walltop { grid-template-columns: minmax(0, 1fr); }
+  .clock { width: 80px; height: 80px; }
+  .sheet-top { grid-template-columns: minmax(0, 1fr) auto; }
+  .sheet-top canvas { grid-column: 1 / -1; grid-row: 2; justify-self: center; }
+}
+@media (prefers-reduced-motion: reduce) { .arrow { animation: none; } .btn { transition: none; } }
+</style>
+
+<div class="game">
+  <header class="titlebar">
+    <h1>Agent Workshop</h1>
+    <ul class="party" id="tally" aria-label="Agents by status"></ul>
+  </header>
+
+  <section class="dialog pbox" aria-label="Workshop report">
+    <p id="headline" aria-hidden="true"></p>
+    <p class="sr" id="headlineSr" aria-live="polite"></p>
+    <span class="arrow" aria-hidden="true">&#9660;</span>
+  </section>
+
+  <div class="toolbar"><span id="fresh">Waiting for the first report</span><button class="btn ghost" id="refresh" type="button">Refresh</button></div>
+
+  <main class="room pbox">
+    <div class="walltop">
+      <svg class="clock" viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+        <rect class="rim" x="6" y="6" width="88" height="88" rx="14"/>
+        <g id="ticks"></g>
+        <line class="hd" id="hh" x1="50" y1="50" x2="50" y2="29" stroke-width="7"/>
+        <line class="hd" id="mh" x1="50" y1="50" x2="50" y2="18" stroke-width="5"/>
+        <line class="hd sec" id="sh" x1="50" y1="56" x2="50" y2="16" stroke-width="2.5"/>
+        <rect x="46" y="46" width="8" height="8" fill="var(--ink)"/>
+      </svg>
+      <section class="board" aria-labelledby="bbh"><h2 id="bbh">Bulletin board</h2><div id="routines"><p>Checking for scheduled routines.</p></div></section>
+    </div>
+    <div class="floor">
+      <div id="banner"></div>
+      <section aria-labelledby="fl1">
+        <h2 class="area pbox" id="fl1">Workshop floor <small>Claude Code agents</small></h2>
+        <ul class="bays" id="bays"></ul>
+      </section>
+      <section aria-labelledby="fl2">
+        <h2 class="area pbox" id="fl2">Field agents <small>run on their own servers and report in here</small></h2>
+        <ul class="bays" id="field"></ul>
+        <div id="fieldMsg"></div>
+        <form class="add" id="addForm" hidden>
+          <input id="addName" type="text" maxlength="40" placeholder="Name a new field agent" aria-label="Name of a new field agent" required>
+          <select id="addKind" aria-label="Kind of agent"><option value="whatsapp">WhatsApp</option><option value="outreach">Outreach</option><option value="other">Other</option></select>
+          <button class="btn" type="submit">Add</button>
+        </form>
+      </section>
+    </div>
+  </main>
+
+  <section class="pc pbox" id="pcWrap" hidden>
+    <h2>Storage box <small id="pcCount"></small></h2>
+    <ul class="slots" id="slots"></ul>
+    <button class="btn ghost more" id="pcMore" type="button" hidden>Show all</button>
+  </section>
+</div>
+
+<div class="veil" id="veil" hidden><aside class="sheet pbox" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle"></aside></div>
+
+<script>
+(function () {
+  'use strict';
+  var SERVER = 'Claude Code Remote';
+  var S = { unsub: [], sessions: null, routines: null, err: null, rErr: null, fetchedAt: null, mode: 'loading', selected: null, shelfAll: false, mcp: null, sig: '',
+            db: null, field: null, dbErr: null, byId: {}, frame: 0, busy: {}, headText: '' };
+  var LABEL = { working: 'Working', needs: 'Needs you', review: 'Done', failed: 'Fainted', rest: 'Asleep', silent: 'Silent', archived: 'Boxed' };
+  var RANK = { needs: 0, working: 1, failed: 2, review: 3, rest: 4, silent: 5 };
+  var ORIGIN = { desktop_app: 'Desktop app', claude_code_cli: 'Terminal', web: 'Web', mobile: 'Phone' };
+  var REDUCE = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+  function $(id) { return document.getElementById(id); }
+  function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function plural(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
+  function ago(ms) {
+    if (!ms) return '';
+    var s = Math.max(0, Math.round((Date.now() - ms) / 1000));
+    if (s < 45) return 'just now';
+    var m = Math.round(s / 60); if (m < 60) return m + ' min ago';
+    var h = Math.round(m / 60); if (h < 36) return h + ' h ago';
+    return Math.round(h / 24) + ' d ago';
+  }
+  function until(ms) {
+    var s = Math.round((ms - Date.now()) / 1000);
+    if (s < 60) return 'any moment';
+    var m = Math.round(s / 60); if (m < 60) return 'in ' + m + ' min';
+    var h = Math.round(m / 60); if (h < 36) return 'in ' + h + ' h';
+    return 'in ' + Math.round(h / 24) + ' d';
+  }
+  function when(ms) { try { return new Date(ms).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; } }
+  function hash(s) { var h = 0; for (var i = 0; i < s.length; i++) { h = (h * 31 + s.charCodeAt(i)) >>> 0; } return h; }
+  function pick(o, path) { for (var i = 0; i < path.length && o != null; i++) o = o[path[i]]; return o; }
+
+  /* =================== pixel art =================== */
+  var W = 56, H = 48;
+  var HUES = [['#58a8d0', '#3878a0', '#98d0e8'], ['#9878d0', '#6850a0', '#c0a8e8'], ['#e078a0', '#a85078', '#f0a8c8'],
+              ['#58b878', '#388850', '#98e0a8'], ['#d8a840', '#a07820', '#f0d078'], ['#e08858', '#b05830', '#f0b088']];
+  var STC = { working: '#f0b020', needs: '#e84830', review: '#40b868', failed: '#a83858', rest: '#8890a8', silent: '#8890a8' };
+  var PAL = {
+    light: { ink: '#1c1c28', shadow: 'rgba(28,28,40,.22)', top: '#cc9c5c', topL: '#e2b878', front: '#a87440', dark: '#6e4824', leg: '#80582c', screen: '#18202a', eye: '#f8f8f0', skin: '#f8e8c8', steel: '#9aa4ac', wood: '#9a7040', lamp: '#4a5560', off: '#707880', paper: '#f8f8f0', line: '#9098a8' },
+    dark: { ink: '#0c0e1a', shadow: 'rgba(0,0,0,.35)', top: '#8a6638', topL: '#a08048', front: '#684a2c', dark: '#3c2a18', leg: '#503820', screen: '#10161e', eye: '#f8f8f0', skin: '#e8d8b8', steel: '#8a949c', wood: '#8a6438', lamp: '#3a4450', off: '#606870', paper: '#e8e8e0', line: '#8088a0' }
+  };
+  function isDark() {
+    var t = document.documentElement.getAttribute('data-theme');
+    if (t) return t === 'dark';
+    return !!(window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+  }
+  var GLYPH = { Z: ['11111', '00010', '00100', '01000', '11111'], Q: ['01110', '10001', '00010', '00100', '00000', '00100'] };
+
+  function drawBay(cv, a, f) {
+    var ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false;
+    ctx.clearRect(0, 0, W, H);
+    var P = isDark() ? PAL.dark : PAL.light, ink = P.ink;
+    function R(x, y, w, h, c) { ctx.fillStyle = c; ctx.fillRect(x, y, w, h); }
+    function G(x, y, rows, c) { for (var j = 0; j < rows.length; j++) for (var i = 0; i < rows[j].length; i++) if (rows[j][i] === '1') R(x + i, y + j, 1, 1, c); }
+    function bubble(x, y, w, h, fill) { R(x + 1, y, w - 2, h, ink); R(x, y + 1, w, h - 2, ink); R(x + 2, y + 1, w - 4, h - 2, fill); R(x + 1, y + 2, w - 2, h - 4, fill); R(x + 2, y + h, 2, 1, ink); R(x + 1, y + h + 1, 1, 1, ink); }
+    var st = a ? a.state : 'empty', c = HUES[((a ? a.hue : 1) - 1)], base = c[0], sh = c[1], li = c[2];
+    var kind = a && a.kind || 'code';
+    var lit = st === 'working';
+    R(4, 45, 48, 2, P.shadow);
+    if (lit) { ctx.globalAlpha = 0.26; for (var y = 20; y <= 30; y++) { var x0 = Math.round(6 - (y - 20) * 0.5), x1 = Math.round(14 + (y - 20) * 0.8); R(x0, y, x1 - x0, 1, '#ffe27a'); } ctx.globalAlpha = 1; }
+    var dim = st === 'silent';
+    if (st !== 'empty') {
+      if (dim) ctx.globalAlpha = 0.55;
+      var dy = st === 'failed' ? 5 : (st === 'rest' || dim) ? 2 : 0;
+      var bulb = st === 'working' ? STC.working : st === 'needs' ? (f ? STC.needs : '#f8b0a0') : st === 'review' ? STC.review : st === 'failed' ? STC.failed : P.off;
+      R(19, 23, 18, 13, ink); R(20, 24, 16, 11, base); R(21, 25, 14, 1, li); R(20, 32, 16, 3, sh); R(24, 26, 8, 5, P.screen);
+      R(26, 27, 2, 2, bulb); R(29, 27, 2, 2, st === 'working' && f ? '#f8f8f0' : '#58606a');
+      R(26, 0 + dy, 5, 4, ink); R(27, 1 + dy, 3, 2, bulb); R(28, 4 + dy, 1, 4, ink);
+      R(17, 11 + dy, 3, 7, ink); R(18, 12 + dy, 2, 5, sh); R(36, 11 + dy, 3, 7, ink); R(36, 12 + dy, 2, 5, sh);
+      R(20, 8 + dy, 16, 13, ink); R(21, 9 + dy, 14, 11, base); R(22, 10 + dy, 12, 1, li); R(21, 19 + dy, 14, 1, sh);
+      R(23, 11 + dy, 10, 7, P.screen);
+      var ey = 12 + dy;
+      if (st === 'working') { R(25, ey + 1 + f, 2, 2, P.eye); R(30, ey + 1 + f, 2, 2, P.eye); R(27, ey + 5, 3, 1, P.eye); }
+      else if (st === 'needs') { R(25, ey, 2, 3, P.eye); R(30, ey, 2, 3, P.eye); R(28, ey + 4, 2, 2, P.eye); }
+      else if (st === 'review') { R(24, ey + 2, 1, 1, P.eye); R(25, ey + 1, 2, 1, P.eye); R(27, ey + 2, 1, 1, P.eye); R(29, ey + 2, 1, 1, P.eye); R(30, ey + 1, 2, 1, P.eye); R(32, ey + 2, 1, 1, P.eye); R(26, ey + 4, 5, 1, P.eye); R(27, ey + 5, 3, 1, P.eye); }
+      else if (st === 'failed') { [25, 30].forEach(function (x) { R(x, ey, 1, 1, P.eye); R(x + 2, ey, 1, 1, P.eye); R(x + 1, ey + 1, 1, 1, P.eye); R(x, ey + 2, 1, 1, P.eye); R(x + 2, ey + 2, 1, 1, P.eye); }); R(26, ey + 5, 4, 1, P.eye); }
+      else { R(25, ey + 2, 3, 1, P.eye); R(30, ey + 2, 3, 1, P.eye); R(28, ey + 5, 2, 1, P.eye); }
+      if (dim) ctx.globalAlpha = 1;
+    }
+    R(3, 30, 50, 6, ink); R(4, 31, 48, 4, P.top); R(4, 31, 48, 1, P.topL);
+    R(4, 35, 48, 9, ink); R(5, 36, 46, 7, P.front); R(22, 38, 12, 4, P.dark); R(27, 39, 2, 2, P.topL);
+    R(6, 44, 4, 3, ink); R(7, 44, 2, 3, P.leg); R(46, 44, 4, 3, ink); R(47, 44, 2, 3, P.leg);
+    R(5, 28, 8, 3, ink); R(6, 29, 6, 1, P.lamp); R(8, 19, 2, 10, ink); R(5, 15, 10, 5, ink); R(6, 16, 8, 3, P.lamp);
+    R(7, 20, 6, 1, lit ? '#f8d050' : P.off);
+    if (kind === 'whatsapp') { R(41, 17, 10, 14, ink); R(42, 18, 8, 12, '#25362c'); R(43, 19, 6, 8, '#58c878'); R(44, 21, 3, 2, '#f8f8f0'); R(46, 24, 2, 2, '#f8f8f0'); R(45, 28, 2, 1, '#f8f8f0'); }
+    else if (kind === 'outreach') { R(40, 23, 12, 8, ink); R(41, 24, 10, 6, P.paper); for (var i = 0; i < 5; i++) { R(41 + i, 24 + i, 1, 1, ink); R(50 - i, 24 + i, 1, 1, ink); } R(48, 27, 2, 2, '#e04830'); }
+    else { R(40, 25, 12, 6, ink); R(41, 26, 10, 4, '#d86840'); R(44, 23, 5, 3, ink); R(45, 24, 3, 1, P.line); R(45, 28, 3, 1, '#a04828'); }
+    if (st !== 'empty' && kind === 'code') { R(24, 27, 10, 4, ink); R(25, 28, 8, 2, P.steel); }
+    function limbR() { R(36, 24, 5, 8, ink); R(37, 25, 3, 6, base); R(36, 30, 5, 4, ink); R(37, 31, 3, 2, P.skin); }
+    function limbL() { R(15, 24, 5, 8, ink); R(16, 25, 3, 6, base); R(15, 30, 5, 4, ink); R(16, 31, 3, 2, P.skin); }
+    function raised(x) { R(x, 12, 5, 13, ink); R(x + 1, 13, 3, 11, base); R(x, 8, 5, 5, ink); R(x + 1, 9, 3, 3, P.skin); }
+    if (dim) ctx.globalAlpha = 0.55;
+    if (st === 'working') {
+      limbL();
+      if (!f) { raised(37); R(38, 1, 3, 8, ink); R(39, 2, 1, 6, P.wood); R(35, 0, 9, 4, ink); R(36, 1, 7, 2, P.steel); }
+      else { R(36, 24, 5, 6, ink); R(37, 25, 3, 4, base); R(33, 26, 8, 3, ink); R(34, 27, 6, 1, P.wood); R(26, 24, 9, 5, ink); R(27, 25, 7, 3, P.steel);
+             R(22, 22, 1, 2, '#ffd23a'); R(24, 20, 1, 2, '#ffd23a'); R(30, 20, 1, 2, '#ffd23a'); R(35, 22, 1, 1, '#ffd23a'); }
+    } else if (st === 'needs') {
+      limbR(); raised(f ? 14 : 12);
+      var by = f ? 1 : 0; bubble(36, by, 11, 13, '#f8f8f8'); R(40, by + 3, 3, 5, STC.needs); R(40, by + 9, 3, 2, STC.needs);
+    } else if (st === 'review') {
+      limbL(); raised(37);
+      R(35, 0, 9, 10, ink); R(36, 1, 7, 8, P.paper); R(37, 2, 5, 1, P.line); R(37, 4, 5, 1, P.line); R(37, 6, 3, 1, P.line);
+      var tw = f ? '#ffe27a' : '#f8f8f0'; R(46, 2, 1, 3, tw); R(45, 3, 3, 1, tw); R(33, 6, 1, 1, tw); R(48, 8, 1, 1, tw);
+    } else if (st === 'failed') {
+      limbL(); limbR();
+      ctx.globalAlpha = 0.8; R(f ? 22 : 24, f ? 0 : 2, 3, 3, '#8890a0'); R(f ? 27 : 26, f ? 2 : 0, 4, 3, '#a0a8b8'); R(f ? 31 : 30, f ? 0 : 2, 2, 2, '#8890a0'); ctx.globalAlpha = 1;
+    } else if (st === 'rest' || st === 'silent') {
+      limbL(); limbR();
+      if (st === 'rest') { G(f ? 38 : 40, f ? 4 : 6, GLYPH.Z, P.line); G(f ? 44 : 43, f ? 0 : 1, GLYPH.Z, P.line); }
+      else { ctx.globalAlpha = 1; var qy = f ? 3 : 2; bubble(38, qy, 11, 13, '#d8dae6'); G(40, qy + 3, GLYPH.Q, '#5a6078'); }
+    } else if (st === 'empty') {
+      R(24, 26, 8, 1, P.line); R(24, 28, 8, 1, P.line);
+    }
+    ctx.globalAlpha = 1;
+  }
+  function drawMini(cv, hue, state) {
+    var ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = false; ctx.clearRect(0, 0, 20, 18);
+    var P = isDark() ? PAL.dark : PAL.light, c = HUES[hue - 1];
+    function R(x, y, w, h, col) { ctx.fillStyle = col; ctx.fillRect(x, y, w, h); }
+    R(9, 0, 2, 3, P.ink); R(8, 0, 4, 2, STC[state] || STC.rest); R(2, 3, 16, 14, P.ink); R(3, 4, 14, 12, c[0]); R(4, 5, 12, 1, c[2]); R(3, 14, 14, 2, c[1]); R(5, 7, 10, 6, P.screen);
+    R(6, 9, 3, 1, P.eye); R(11, 9, 3, 1, P.eye);
+  }
+  function redraw() {
+    var f = S.frame;
+    document.querySelectorAll('canvas.cv').forEach(function (cv) { drawBay(cv, S.byId[cv.getAttribute('data-id')] || null, f); });
+    document.querySelectorAll('canvas.mini').forEach(function (cv) { var a = S.byId[cv.getAttribute('data-id')]; if (a) drawMini(cv, a.hue, 'rest'); });
+    var sc = $('sheetCv'); if (sc && S.selected && S.byId[S.selected]) drawBay(sc, S.byId[S.selected], f);
+  }
+
+  /* =================== reading data =================== */
+  function extractList(p) {
+    if (typeof p === 'string') { try { p = JSON.parse(p); } catch (e) { return null; } }
+    if (Array.isArray(p)) return p;
+    if (!p || typeof p !== 'object') return null;
+    if (p.ccr) return extractList(p.ccr);
+    if (Array.isArray(p.data)) return p.data;
+    if (Array.isArray(p.sessions)) return p.sessions;
+    if (Array.isArray(p.triggers)) return p.triggers;
+    for (var k in p) { if (Array.isArray(p[k])) return p[k]; }
+    return null;
+  }
+  function norm(s) {
+    var bucket = String(s.status_bucket || '').replace(/^SESSION_STATUS_BUCKET_/, '').toLowerCase();
+    var status = String(s.session_status || '').replace(/^SESSION_STATUS_/, '').toLowerCase();
+    var pts = s.post_turn_summary || pick(s, ['external_metadata', 'post_turn_summary']) || {};
+    var state;
+    if (status === 'archived') state = 'archived';
+    else if (bucket === 'blocked' || (!bucket && pts.status_category === 'need_input')) state = 'needs';
+    else if (bucket === 'failed') state = 'failed';
+    else if (bucket === 'working' || (!bucket && status === 'running')) state = 'working';
+    else if (bucket === 'review_ready') state = 'review';
+    else state = 'rest';
+    var c = pick(s, ['external_metadata', 'context_usage']);
+    var pct = c && c.max_tokens ? Math.max(0, Math.min(100, Math.round(100 * (c.used_tokens || 0) / c.max_tokens))) : null;
+    var out = pick(s, ['session_context', 'outcomes', 0, 'git_repository', 'git_info']);
+    var src = pick(s, ['session_context', 'sources', 0, 'git_repository', 'url']);
+    var repo = (out && out.repo) || (src ? String(src).replace(/\.git$/, '').split('/').slice(-2).join('/') : '');
+    var id = String(s.id || s.session_id || Math.random());
+    return {
+      id: id, field: false, kind: 'code', title: s.title || 'Untitled agent', state: state, connected: s.connection_status !== 'disconnected',
+      updated: Date.parse(s.updated_at) || 0, created: Date.parse(s.created_at) || 0,
+      model: String(pick(s, ['session_context', 'model']) || s.configured_model || '').replace(/^claude-/, ''),
+      origin: ORIGIN[s.origin] || String(s.origin || '').replace(/_/g, ' '), ctx: pct,
+      detail: pts.status_detail || '', action: pts.needs_action || '', recent: pts.recent_action || '',
+      repo: repo, branch: out && out.branches && out.branches[0] || '', hue: (hash(id) % 6) + 1,
+      url: id.indexOf('session_') === 0 ? 'https://claude.ai/code/' + id : ''
+    };
+  }
+  function ttlText(m) { m = +m || 360; return m >= 1440 ? Math.round(m / 1440) + (m >= 2880 ? ' days' : ' day') : m >= 60 ? Math.round(m / 60) + (m >= 120 ? ' hours' : ' hour') : m + ' min'; }
+  function kindText(k) { return { whatsapp: 'WhatsApp bot', outreach: 'Outreach agent' }[k] || 'Field agent'; }
+  function normField(d) {                       /* a field agent reports in; no report within its window means silent */
+    var ttl = (+d.ttlMin || 360) * 60000, rep = +d.reportedAt || 0, age = rep ? Date.now() - rep : Infinity;
+    var valid = d.state === 'working' || d.state === 'needs' || d.state === 'review' || d.state === 'failed' || d.state === 'rest';
+    var state = !rep || age > ttl ? 'silent' : (valid ? d.state : 'rest');
+    var note = d.note || '';
+    if (state === 'silent') note = rep ? 'No word for ' + ago(rep).replace(' ago', '') + '. It should report every ' + ttlText(d.ttlMin) + '.' : 'Nothing reported yet. Set its status below, or ask Claude to.';
+    return { id: d.id, field: true, kind: d.kind || 'other', title: d.name || d.id, state: state, reported: d.state, connected: true, updated: rep, created: 0, model: '', origin: kindText(d.kind),
+      ctx: null, signal: state === 'silent' ? 0 : Math.max(0, Math.min(100, Math.round(100 * (1 - age / ttl)))), detail: note, action: state === 'needs' ? note : '', recent: '', repo: '', branch: '',
+      hue: (hash(d.id) % 6) + 1, url: '', ttl: +d.ttlMin || 360, note: d.note || '', by: d.by || '', raw: d };
+  }
+  function exampleCrew() {
+    var now = Date.now(), m = 60000;
+    var rows = [['Research agent', 'working', now - 2 * m, 'Reading sources and taking notes', '', 46], ['Outreach agent', 'needs', now - 18 * m, 'Waiting on you', 'Approve today\'s batch before it sends', 71],
+      ['Content agent', 'review', now - 55 * m, 'A draft is ready to look at', '', 33], ['Support agent', 'rest', now - 5 * 3600000, 'Quiet since the morning', '', 12], ['Data agent', 'failed', now - 26 * m, 'The last run stopped with an error', '', 88]];
+    return rows.map(function (r, i) {
+      return { id: 'example' + i, field: false, kind: 'code', title: r[0], state: r[1], connected: true, updated: r[2], created: r[2] - 6 * 3600000, model: 'example', origin: 'Example', ctx: r[5],
+        detail: r[3], action: r[4], recent: '', repo: '', branch: '', hue: i + 1, url: '', example: true };
+    });
+  }
+  function codeAgents() { if (S.sessions) return S.sessions.map(norm); if (S.mode === 'example') return exampleCrew(); return null; }
+  function fieldAgents() { return S.field ? S.field.map(normField) : null; }
+
+  /* =================== words =================== */
+  function sayFor(a) {
+    var n = a.title.toUpperCase();
+    if (a.state === 'working') return n + ' is hard at work!' + (a.field && a.detail ? ' ' + a.detail : '');
+    if (a.state === 'needs') return n + ' needs you!' + (a.action || a.detail ? ' ' + (a.action || a.detail) : '');
+    if (a.state === 'review') return n + ' has something to show you!' + (a.detail ? ' ' + a.detail : '');
+    if (a.state === 'failed') return n + ' fainted!' + (a.detail ? ' ' + a.detail : '');
+    if (a.state === 'silent') return n + ': ' + a.detail;
+    if (a.state === 'archived') return n + ' finished and was put in the storage box.';
+    return n + ' is fast asleep.' + (a.field && a.detail ? ' ' + a.detail : '');
+  }
+  function noteFor(a) {
+    if (a.state === 'needs') return { t: a.action || a.detail || 'Waiting on you', hot: true };
+    if (a.state === 'working') return { t: a.recent || a.detail || 'Working through its turn', hot: false };
+    if (a.state === 'review') return { t: a.detail || 'Work is ready to look at', hot: false };
+    if (a.state === 'failed') return { t: a.detail || 'The last turn stopped with an error', hot: false };
+    if (a.state === 'silent') return { t: a.detail, hot: false };
+    return { t: a.detail || a.repo || 'Idle at its bench', hot: false };
+  }
+  var typer = {};
+  function typeText(el, text, key) {
+    if (!el) return;
+    if (typer[key]) clearInterval(typer[key]);
+    if (REDUCE) { el.textContent = text; return; }
+    var i = 0; el.textContent = '';
+    typer[key] = setInterval(function () { i += 1; el.textContent = text.slice(0, i); if (i >= text.length) clearInterval(typer[key]); }, 22);
+  }
+
+  /* =================== rendering =================== */
+  function hpClass(left) { return left > 50 ? '' : left > 20 ? 'y' : 'r'; }
+  function bayHtml(a, empty) {
+    if (empty != null) return '<li class="empty"><div class="bay" style="cursor:default"><canvas class="cv" width="' + W + '" height="' + H + '" data-id="_"></canvas><span class="plate pbox"><span class="nm">Empty bay</span><span class="msg">' + esc(empty) + '</span></span></div></li>';
+    var n = noteFor(a), left = a.ctx == null ? null : 100 - a.ctx;
+    var meter = '';
+    if (a.field) meter = '<span class="hp" title="How fresh its last report is"><b>SIG</b><i class="' + hpClass(a.signal) + '" style="--w:' + a.signal + '%"></i></span>';
+    else if (left != null) meter = '<span class="hp" title="Context left in the window"><b>HP</b><i class="' + hpClass(left) + '" style="--w:' + left + '%"></i></span>';
+    var tag = '<span class="tag ' + a.state + '">' + LABEL[a.state] + '</span>' + (a.example ? '<span class="tag ex">Example</span>' : (!a.connected ? '<span class="tag ex" title="Disconnected from its machine">Offline</span>' : ''));
+    var label = a.title + ', ' + LABEL[a.state] + (a.connected ? '' : ', disconnected');
+    return '<li><button class="bay" type="button" data-id="' + esc(a.id) + '" aria-label="' + esc(label) + '"><canvas class="cv" width="' + W + '" height="' + H + '" data-id="' + esc(a.id) + '" aria-hidden="true"></canvas>' +
+      '<span class="plate pbox"><span class="nm">' + esc(a.title) + '</span><span class="row">' + tag + '<span class="ago" data-ago="' + a.updated + '">' + esc(ago(a.updated)) + '</span></span>' +
+      '<span class="msg' + (n.hot ? ' hot' : '') + '">' + esc(n.t) + '</span>' + meter + '</span></button></li>';
+  }
+  function explain(e) {
+    var c = e && e.code;
+    if (c === 'server_not_connected' || c === 'selection_required') return { t: 'Claude Code Remote is not connected.', b: 'Add it in claude.ai under Settings, then Connectors.', a: '' };
+    if (c === 'needs_reauth') return { t: 'Claude Code Remote needs you to sign in again.', b: 'Reconnect it in claude.ai under Settings, then Connectors.', a: '' };
+    if (c === 'not_in_manifest' || c === 'consent_required' || c === 'approval_required') return { t: 'This page is not allowed to read your agents yet.', b: 'It only reads session names and statuses.', a: 'allow' };
+    if (c === 'blocked_by_policy') return { t: 'Your organisation blocks this connector for pages.', b: 'Ask an admin to allow it.', a: '' };
+    if (c === 'server_unavailable' || c === 'upstream_error' || c === 'rate_limited') return { t: 'Claude Code Remote did not answer.', b: 'The last report stays on screen until it does.', a: 'retry' };
+    if (c === 'shape') return { t: 'The reply was not a list of sessions.', b: 'Try again in a moment.', a: 'retry' };
+    return { t: 'Could not reach your agents.', b: (e && e.message) || '', a: 'retry' };
+  }
+  function bannerHtml() {
+    var e = S.err;
+    if (S.mode === 'example') {
+      var why = e ? explain(e) : { t: 'This view cannot reach your connectors.', b: 'Open the page inside claude.ai to see your own agents.', a: '' };
+      return '<div class="banner pbox"><p><strong>' + esc(why.t) + '</strong> ' + esc(why.b) + ' The workshop floor shows an example crew.</p>' + (why.a === 'allow' ? '<button class="btn" id="allow" type="button">Allow access</button>' : '') + '</div>';
+    }
+    if (e && S.sessions) { var w = explain(e); return '<div class="banner pbox"><p><strong>Showing the last report.</strong> ' + esc(w.t + ' ' + w.b) + '</p><button class="btn" id="retry" type="button">Try again</button></div>'; }
+    return '';
+  }
+  function renderTally(all) {
+    var el = $('tally');
+    if (!all) { el.innerHTML = ''; return; }
+    var c = { working: 0, needs: 0, review: 0, failed: 0, rest: 0, silent: 0 };
+    all.forEach(function (a) { if (c[a.state] != null) c[a.state]++; });
+    var order = [['working', 'Working'], ['needs', 'Needs you'], ['review', 'Done'], ['failed', 'Fainted'], ['rest', 'Asleep'], ['silent', 'Silent']];
+    el.innerHTML = order.filter(function (o) { return o[0] !== 'silent' || c.silent; }).map(function (o) { return '<li class="pbox" data-zero="' + (c[o[0]] ? 0 : 1) + '"><i class="gem ' + o[0] + '"></i><b>' + c[o[0]] + '</b>' + o[1] + '</li>'; }).join('');
+    var n = all.length, h;
+    if (!n) h = 'Every bay is empty right now.';
+    else {
+      var parts = [];
+      if (c.working) parts.push(c.working + ' working');
+      if (c.needs) parts.push(c.needs + ' waiting on you');
+      if (c.review) parts.push(c.review + ' done');
+      if (c.failed) parts.push(c.failed + ' fainted');
+      if (c.rest) parts.push(c.rest + ' asleep');
+      if (c.silent) parts.push(c.silent + ' silent');
+      h = plural(n, 'agent is', 'agents are') + ' in the workshop. ' + parts.join(', ') + '.';
+      if (c.needs) h = 'A wild request appeared! ' + h;
+    }
+    if (S.headText !== h) { S.headText = h; typeText($('headline'), h, 'head'); $('headlineSr').textContent = h; }
+  }
+  function renderFresh() {
+    var el = $('fresh');
+    if (S.mode === 'example') el.textContent = 'Example crew, not your data';
+    else if (S.fetchedAt) el.textContent = 'Last report ' + ago(S.fetchedAt);
+    else el.textContent = 'Waiting for the first report';
+  }
+  function render() {
+    var code = codeAgents(), field = fieldAgents();
+    var byId = {};
+    (code || []).concat(field || []).forEach(function (a) { byId[a.id] = a; });
+    S.byId = byId;
+    var benches = code ? code.filter(function (a) { return a.state !== 'archived'; }) : [];
+    benches.sort(function (a, b) { return (RANK[a.state] - RANK[b.state]) || (b.updated - a.updated); });
+    var shelf = code ? code.filter(function (a) { return a.state === 'archived'; }).sort(function (a, b) { return b.updated - a.updated; }) : [];
+    $('banner').innerHTML = bannerHtml();
+    if (!code) $('bays').innerHTML = bayHtml(null, 'Asking Claude Code Remote who is at work.') + bayHtml(null, '') + bayHtml(null, '');
+    else if (!benches.length) $('bays').innerHTML = bayHtml(null, 'No agent is active. Start a session and it will take this bay.');
+    else $('bays').innerHTML = benches.map(function (a) { return bayHtml(a); }).join('');
+    var fl = field ? field.slice().sort(function (a, b) { return ((a.raw.order || 99) - (b.raw.order || 99)) || a.title.localeCompare(b.title); }) : [];
+    $('field').innerHTML = fl.map(function (a) { return bayHtml(a); }).join('');
+    var fm = $('fieldMsg'), af = $('addForm');
+    if (!S.db) { fm.innerHTML = '<div class="field-empty pbox"><p>Field agents are kept in this page\'s database, which this view cannot reach. Open the page inside claude.ai.</p></div>'; af.hidden = true; }
+    else { af.hidden = false; fm.innerHTML = (field && !fl.length) ? '<div class="field-empty pbox"><p>No field agents yet. Add one below, or ask Claude to add your WhatsApp bot and outreach agent.</p></div>' : ''; }
+    var all = (code || []).concat(field || []).filter(function (a) { return a.state !== 'archived'; });
+    renderTally(code || field ? all : null);
+    renderFresh();
+    var wrap = $('pcWrap');
+    wrap.hidden = !shelf.length;
+    if (shelf.length) {
+      var shown = S.shelfAll ? shelf : shelf.slice(0, 8);
+      $('pcCount').textContent = plural(shelf.length, 'finished session', 'finished sessions');
+      $('slots').innerHTML = shown.map(function (a) { return '<li><button class="slot" type="button" data-id="' + esc(a.id) + '"><canvas class="mini" width="20" height="18" data-id="' + esc(a.id) + '" aria-hidden="true"></canvas><b>' + esc(a.title) + '</b><span data-ago="' + a.updated + '">' + esc(ago(a.updated)) + '</span></button></li>'; }).join('');
+      var more = $('pcMore'); more.hidden = shelf.length <= 8; more.textContent = S.shelfAll ? 'Show fewer' : 'Show all ' + shelf.length;
+    }
+    redraw();
+    if (S.selected) renderSheet(false);
+  }
+  function renderRoutines() {
+    var el = $('routines'), list = S.routines;
+    if (!list) { el.innerHTML = '<p>' + (S.rErr && S.mode !== 'example' ? 'Could not read routines right now.' : 'Checking for scheduled routines.') + '</p>'; return; }
+    if (!list.length) { el.innerHTML = '<p>Nothing is pinned here. A scheduled routine shows up as a note on this board.</p>'; return; }
+    el.innerHTML = '<ul class="notes">' + list.slice(0, 6).map(function (r) {
+      var last = pick(r, ['last_run', 'status']);
+      var g = r.enabled === false ? 'rest' : (String(last || '').toUpperCase().indexOf('FAIL') >= 0 ? 'failed' : last ? 'review' : 'working');
+      var sched = r.run_once_at ? 'Once, ' + when(Date.parse(r.run_once_at)) : (r.cron_expression || 'Manual trigger');
+      var nx = r.enabled === false ? 'Paused' : (r.next_run_at ? until(Date.parse(r.next_run_at)) : '');
+      return '<li class="note"><i class="gem ' + g + '"></i><span class="rn">' + esc(r.name || 'Untitled routine') + '</span><span class="nx">' + esc(nx) + '</span><span class="sub">' + esc(sched) + '</span></li>';
+    }).join('') + '</ul>' + (list.length > 6 ? '<p style="margin-top:8px">and ' + (list.length - 6) + ' more</p>' : '');
+  }
+
+  /* =================== summary screen =================== */
+  var STATES = [['working', 'Working on something'], ['needs', 'Needs me'], ['review', 'Done, I should look'], ['rest', 'Idle, all fine'], ['failed', 'Broken']];
+  function renderSheet(fresh) {
+    var a = S.byId[S.selected], sh = $('sheet'), veil = $('veil');
+    if (!a) { veil.hidden = true; S.selected = null; return; }
+    var typing = document.activeElement && sh.contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName);
+    if (typing && !fresh) return;                       /* do not rebuild under someone who is typing */
+    var facts = [];
+    function add(k, v) { if (v) facts.push('<dt>' + k + '</dt><dd>' + esc(v) + '</dd>'); }
+    add('Last active', a.updated ? ago(a.updated) + ', ' + when(a.updated) : (a.field ? 'Never reported' : ''));
+    add('Started', a.created ? when(a.created) : '');
+    add('Working in', a.repo); add('Branch', a.branch); add('Model', a.model); add('Runs on', a.origin);
+    add('Context', a.ctx == null ? '' : (100 - a.ctx) + '% left of the window');
+    add('Reports every', a.field ? ttlText(a.ttl) : '');
+    add('Last set by', a.field && a.by ? (a.by === 'page' ? 'you, on this page' : a.by) : '');
+    add('Connection', a.connected ? '' : 'Disconnected from its machine');
+    var menu = '';
+    if (a.field) {
+      menu = '<div class="menu" role="group" aria-label="Report its status"><h4>Report status</h4>' + STATES.map(function (o) { return '<button class="opt" type="button" data-set="' + o[0] + '" aria-pressed="' + (a.reported === o[0] && a.state !== 'silent' ? 'true' : 'false') + '">' + o[1] + '</button>'; }).join('') + '</div>' +
+        '<div class="fields"><label for="fnote">Note<span class="line"><input id="fnote" type="text" maxlength="140" value="' + esc(a.note) + '" placeholder="What is it doing?"><button class="btn" type="button" id="fnoteSave">Save</button></span></label>' +
+        '<label for="fttl">Should report every<select id="fttl">' + [[60, '1 hour'], [360, '6 hours'], [1440, '1 day'], [4320, '3 days']].map(function (o) { return '<option value="' + o[0] + '"' + (a.ttl === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></label></div>';
+    }
+    var hp = '';
+    if (a.ctx != null) hp = '<div class="hp" style="margin-top:12px" title="Context left in the window"><b>HP</b><i class="' + hpClass(100 - a.ctx) + '" style="--w:' + (100 - a.ctx) + '%"></i></div>';
+    if (a.field) hp = '<div class="hp" style="margin-top:12px" title="How fresh its last report is"><b>SIG</b><i class="' + hpClass(a.signal) + '" style="--w:' + a.signal + '%"></i></div>';
+    sh.innerHTML = '<div class="sheet-top"><canvas id="sheetCv" width="' + W + '" height="' + H + '" aria-hidden="true"></canvas><div><span class="tag ' + a.state + '">' + LABEL[a.state] + '</span><h3 id="sheetTitle">' + esc(a.title) + '</h3></div><button class="btn ghost" id="closeSheet" type="button">Back</button></div>' +
+      '<p class="sheet-msg' + (a.state === 'needs' ? ' hot' : '') + '" id="sheetMsg"></p>' + hp + '<dl class="stats">' + facts.join('') + '</dl>' + menu +
+      (a.url ? '<div class="acts"><a class="btn" href="' + esc(a.url) + '" target="_blank" rel="noopener">Open session</a></div>' : '');
+    var opened = veil.hidden; veil.hidden = false;
+    if (opened || fresh) { typeText($('sheetMsg'), sayFor(a), 'sheet'); $('closeSheet').focus(); } else { $('sheetMsg').textContent = sayFor(a); }
+    redraw();
+  }
+  function openSheet(id, opener) { S.selected = id; S.opener = opener || null; renderSheet(true); }
+  function closeSheet() { S.selected = null; $('veil').hidden = true; if (typer.sheet) clearInterval(typer.sheet); if (S.opener && document.contains(S.opener)) S.opener.focus(); }
+
+  /* =================== clock =================== */
+  function buildTicks() {
+    var g = '';
+    for (var i = 0; i < 12; i++) { var a = i * Math.PI / 6, r1 = i % 3 ? 37 : 33, r2 = 41; g += '<line class="tk" x1="' + (50 + r1 * Math.sin(a)).toFixed(1) + '" y1="' + (50 - r1 * Math.cos(a)).toFixed(1) + '" x2="' + (50 + r2 * Math.sin(a)).toFixed(1) + '" y2="' + (50 - r2 * Math.cos(a)).toFixed(1) + '"/>'; }
+    $('ticks').innerHTML = g;
+  }
+  function tick() {
+    var d = new Date(), s = d.getSeconds(), m = d.getMinutes() + s / 60, h = (d.getHours() % 12) + m / 60;
+    $('hh').style.transform = 'rotate(' + Math.round(h * 30) + 'deg)';
+    $('mh').style.transform = 'rotate(' + Math.round(m * 6) + 'deg)';
+    $('sh').style.transform = 'rotate(' + (s * 6) + 'deg)';
+    document.querySelectorAll('[data-ago]').forEach(function (el) { el.textContent = ago(+el.getAttribute('data-ago')); });
+    renderFresh();
+  }
+
+  /* =================== connectors and database =================== */
+  function onSessions(ev) {
+    if (ev.type === 'error') {
+      S.err = ev.error;
+      var denied = ['needs_reauth', 'server_not_connected', 'not_in_manifest', 'blocked_by_policy', 'approval_required', 'consent_required', 'selection_required', 'not_granted', 'capability_disabled'].indexOf(ev.error && ev.error.code) >= 0;
+      if (denied) { S.sessions = null; S.mode = 'example'; } else if (!S.sessions) { S.mode = 'example'; }
+      render(); return;
+    }
+    var res = ev.result || {}, list = extractList(res.payload != null ? res.payload : res);
+    if (!list) { S.err = { code: 'shape' }; if (!S.sessions) S.mode = 'example'; render(); return; }
+    S.err = null; S.mode = 'live'; S.sessions = list; S.fetchedAt = (res.cache && res.cache.storedAt) || Date.now();
+    var sig = JSON.stringify(list.map(function (s) { return [s.id, s.status_bucket, s.session_status, s.title, s.updated_at, s.connection_status]; }));
+    if (sig !== S.sig) { S.sig = sig; render(); } else { renderFresh(); $('banner').innerHTML = bannerHtml(); }
+  }
+  function onRoutines(ev) {
+    if (ev.type === 'error') { S.rErr = ev.error; renderRoutines(); return; }
+    var res = ev.result || {}, list = extractList(res.payload != null ? res.payload : res);
+    S.rErr = null; S.routines = list || []; renderRoutines();
+  }
+  function startMcp(mcp) {
+    S.mcp = mcp;
+    try { S.unsub.push(mcp.watchTool(SERVER, 'list_sessions', { limit: 50 }, onSessions, { refetchInterval: 30000 })); } catch (e) { onSessions({ type: 'error', error: { code: 'bad_request', message: String(e) } }); }
+    try { S.unsub.push(mcp.watchTool(SERVER, 'list_triggers', { limit: 50 }, onRoutines, { refetchInterval: 60000 })); } catch (e) { /* routines are optional */ }
+  }
+  function startDb(db) {
+    S.db = db;
+    try {
+      db.collection('agents').onSnapshot(function (snap) {
+        S.field = snap.docs.map(function (d) { var x = Object.assign({}, d.data() || {}); x.id = d.id; return x; });
+        render();
+      }, function (e) { S.dbErr = e; S.field = S.field || []; render(); });
+    } catch (e) { S.dbErr = e; S.field = []; render(); }
+  }
+  function saveField(id, patch) {
+    if (!S.db || !id || S.busy[id]) return;
+    S.busy[id] = true;
+    S.db.doc('agents/' + id).update(patch).catch(function () { $('fresh').textContent = 'Could not save. You may only have view access to this page.'; })
+      .then(function () { S.busy[id] = false; });
+  }
+  function refresh() {
+    if (!S.mcp) return;
+    $('fresh').textContent = 'Asking for a fresh report';
+    S.mcp.invalidate(SERVER, 'list_sessions').catch(function () {}); S.mcp.invalidate(SERVER, 'list_triggers').catch(function () {});
+  }
+  function allow() {
+    if (!S.mcp) return;
+    S.mcp.callTool(SERVER, 'list_sessions', { limit: 50 }, { cache: false }).then(function (r) { S.unsub.forEach(function (f) { try { f(); } catch (e) {} }); S.unsub = []; onSessions({ type: 'data', result: r }); startMcp(S.mcp); })
+      .catch(function (e) { S.err = e; render(); });
+  }
+
+  /* =================== events =================== */
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest('[data-id], [data-set], #refresh, #closeSheet, #retry, #allow, #pcMore, #fnoteSave, #veil');
+    if (!t) return;
+    if (t.id === 'veil') { if (e.target === t) closeSheet(); return; }
+    if (t.id === 'refresh' || t.id === 'retry') { refresh(); return; }
+    if (t.id === 'allow') { allow(); return; }
+    if (t.id === 'closeSheet') { closeSheet(); return; }
+    if (t.id === 'pcMore') { S.shelfAll = !S.shelfAll; render(); return; }
+    if (t.id === 'fnoteSave') { saveField(S.selected, { note: $('fnote').value.trim(), reportedAt: Date.now(), by: 'page' }); return; }
+    if (t.hasAttribute('data-set')) { saveField(S.selected, { state: t.getAttribute('data-set'), reportedAt: Date.now(), by: 'page' }); return; }
+    if (t.hasAttribute('data-id') && t.getAttribute('data-id') !== '_') openSheet(t.getAttribute('data-id'), t);
+  });
+  document.addEventListener('change', function (e) { if (e.target.id === 'fttl') saveField(S.selected, { ttlMin: +e.target.value }); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && S.selected) closeSheet();
+    if (e.key === 'Enter' && e.target.id === 'fnote') { e.preventDefault(); $('fnoteSave').click(); }
+  });
+  $('addForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var name = $('addName').value.trim(); if (!name || !S.db) return;
+    var kind = $('addKind').value;
+    S.db.collection('agents').add({ name: name, kind: kind, state: 'rest', note: '', reportedAt: null, ttlMin: kind === 'outreach' ? 1440 : 360, order: 50, by: 'page' })
+      .then(function () { $('addName').value = ''; }).catch(function () { $('fresh').textContent = 'Could not add it. You may only have view access to this page.'; });
+  });
+
+  buildTicks(); tick(); render(); renderRoutines();
+  setInterval(tick, 1000);
+  if (!REDUCE) setInterval(function () { S.frame ^= 1; redraw(); }, 420);
+  if (window.matchMedia) { try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', redraw); } catch (e) {} }
+  try { new MutationObserver(redraw).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] }); } catch (e) {}
+  var cl = window.claude;
+  if (!cl || !cl.use) { S.mode = 'example'; render(); renderRoutines(); }
+  else {
+    cl.use('mcp').then(function (mcp) { if (!mcp) { S.mode = 'example'; S.routines = []; render(); renderRoutines(); return; } startMcp(mcp); }).catch(function () { S.mode = 'example'; render(); });
+    cl.use('db').then(function (db) { if (db) startDb(db); else render(); }).catch(function () { render(); });
+  }
+})();
+</script>
